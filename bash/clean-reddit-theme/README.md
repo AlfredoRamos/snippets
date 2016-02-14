@@ -1,0 +1,1 @@
+A `pre-commit` git hook for [clean-reddit-theme](https://github.com/AlfredoRamos/clean-reddit-theme) to convert the SASS file to CSS.

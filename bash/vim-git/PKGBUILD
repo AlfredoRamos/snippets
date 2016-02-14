@@ -1,0 +1,135 @@
+# $Id$
+# Maintainer: Alfredo Ramos <alfredo dot ramos at yandex dot com>
+# Contributor: Anatol Pomozov <anatol.pomozov@gmail.com>
+# Contributor: Thomas Dziedzic <gostrc@gmail.com>
+# Contributor: Jan "heftig" Steffens <jan.steffens@gmail.com>
+# Contributor: tobias [ tobias at archlinux org ]
+# Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
+
+pkgbase=vim
+pkgname=('vim-git' 'vim-runtime-git')
+pkgver=7.4.1152.0.g09e786e
+pkgrel=1
+arch=('i686' 'x86_64')
+license=('custom:vim')
+url="http://www.vim.org"
+makedepends=('gpm' 'libxt' 'desktop-file-utils' 'ruby' 'python' 'lua' 'gawk' 'git')
+source=(
+	"${pkgbase}::git+https://github.com/${pkgbase}/${pkgbase}.git"
+	'vimrc'
+	'archlinux.vim'
+)
+sha512sums=(
+	'SKIP'
+	'c76e71bc3e9aaf3899ed3d7d4c0a9456da61c7f056ce0826b281fefea309f158186185f0356ff9b8aab6925465b3f24bebfd9272fda0e2d55e96061f68ff8bad'
+	'935c15a4cc55b9209e6b6c974df765cc6683ae32ccea38acadc825bbc9c60b97ebe14aec8814b7e52080c0d0ded520a68ff1880ab64f320b08c181b6bf862edb'
+)
+
+pkgver() {
+	# Updating package version
+	cd ${srcdir}/${pkgbase}
+	git describe --long --tags | sed -r 's/^v//;s/-/./g'
+}
+
+prepare() {
+	cd ${srcdir}/${pkgbase}/src
+
+	# Define the place for the global vimrc file (set to /etc/vimrc)
+	sed -i 's|^.*\(#define SYS_.*VIMRC_FILE.*"\) .*$|\1|' feature.h
+	sed -i 's|^.*\(#define VIMRC_FILE.*"\) .*$|\1|' feature.h
+
+	autoconf
+}
+
+build() {
+	cd ${srcdir}/${pkgbase}
+
+	./configure \
+		--prefix=/usr \
+		--localstatedir=/var/lib/vim \
+		--with-features=huge \
+		--with-compiledby='Arch Linux' \
+		--enable-gpm \
+		--enable-acl \
+		--with-x=yes \
+		--disable-gui \
+		--enable-multibyte \
+		--enable-cscope \
+		--enable-netbeans \
+		--enable-perlinterp=dynamic \
+		--enable-pythoninterp=no \
+		--enable-python3interp=dynamic \
+		--enable-rubyinterp=dynamic \
+		--enable-luainterp=dynamic
+	make
+}
+
+package_vim-git() {
+	pkgdesc='Vi Improved, a highly configurable, improved version of the vi text editor (with support for additional scripting languages). Development version.'
+	depends=("vim-runtime=${pkgver}-${pkgrel}" 'gpm' 'libxt' 'acl' 'ruby' 'python' 'lua')
+	conflicts=('vim-minimal' 'vim-python3' 'gvim')
+	provides=("vim=${pkgver}-${pkgrel}" "vim-minimal=${pkgver}-${pkgrel}" "vim-python3=${pkgver}-${pkgrel}" 'xxd')
+
+	cd ${srcdir}/${pkgbase}
+	make -j1 VIMRCLOC=/etc DESTDIR=${pkgdir} install
+
+	# Provided by (n)vi in core
+	rm "${pkgdir}"/usr/bin/{ex,view}
+
+	# delete some manpages
+	find "${pkgdir}"/usr/share/man -type d -name 'man1' 2>/dev/null | \
+		while read _mandir; do
+			cd ${_mandir}
+			rm -f ex.1 view.1 # provided by (n)vi
+			rm -f evim.1    # this does not make sense if we have no GUI
+  		done
+
+	# Runtime provided by runtime package
+	rm -r "${pkgdir}"/usr/share/vim
+
+	# License
+	install -Dm644 runtime/doc/uganda.txt \
+		"${pkgdir}"/usr/share/licenses/${pkgname}/license.txt
+}
+
+package_vim-runtime-git() {
+	pkgdesc='Runtime for vim and gvim'
+	provides=("vim-runtime=${pkgver}-${pkgrel}")
+	backup=('etc/vimrc')
+
+	cd ${srcdir}/${pkgbase}
+	
+	local versiondir=$(printf "${pkgver}" | sed -r 's/^([0-9]+)\.([0-9]+)(.*)/\1\2/')
+
+	(cd src && make -j1 VIMRCLOC=/etc DESTDIR="${pkgdir}" installruntime install-languages installtools)
+	# man and bin files belong to 'vim'
+	rm -r "${pkgdir}"/usr/share/man/ "${pkgdir}"/usr/bin/
+
+	# Don't forget logtalk.dict
+	install -Dm644 runtime/ftplugin/logtalk.dict \
+		"${pkgdir}"/usr/share/vim/vim${versiondir}/ftplugin/logtalk.dict
+
+	# fix FS#17216
+	sed -i 's|messages,/var|messages,/var/log/messages.log,/var|' \
+		"${pkgdir}"/usr/share/vim/vim${versiondir}/filetype.vim
+
+	# patch filetype.vim for better handling of pacman related files
+	sed -i "s/rpmsave/pacsave/;s/rpmnew/pacnew/;s/,\*\.ebuild/\0,PKGBUILD*,*.install/" \
+		"${pkgdir}"/usr/share/vim/vim${versiondir}/filetype.vim
+	sed -i "/find the end/,+3{s/changelog_date_entry_search/changelog_date_end_entry_search/}" \
+		"${pkgdir}"/usr/share/vim/vim${versiondir}/ftplugin/changelog.vim
+
+	# rc files
+	install -Dm644 "${srcdir}"/vimrc "${pkgdir}"/etc/vimrc
+	install -Dm644 "${srcdir}"/archlinux.vim \
+		"${pkgdir}"/usr/share/vim/vimfiles/archlinux.vim
+
+	# rgb.txt file
+	install -Dm644 runtime/rgb.txt \
+		"${pkgdir}"/usr/share/vim/vim${versiondir}/rgb.txt
+
+	# license
+	install -dm755 "${pkgdir}"/usr/share/licenses/vim-runtime
+	ln -s /usr/share/vim/vim${versiondir}/doc/uganda.txt \
+		"${pkgdir}"/usr/share/licenses/vim-runtime/license.txt
+}

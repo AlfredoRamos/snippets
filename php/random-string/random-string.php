@@ -2,7 +2,7 @@
 
 function rand_string($length = 10) {
 
-	$chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&=~*[]{}<>()^@+-_.,;:/?|';
+	$chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 	$size = strlen($chars);
 	$str = '';
 

@@ -8,8 +8,8 @@
 
 pkgbase=vim
 pkgname=('vim-git' 'vim-runtime-git')
-pkgver=7.4.1152.0.g09e786e
-pkgrel=1
+pkgver=7.4.1579.0.ga3dc5e9
+pkgrel=2
 arch=('i686' 'x86_64')
 license=('custom:vim')
 url="http://www.vim.org"
@@ -94,6 +94,7 @@ package_vim-git() {
 
 package_vim-runtime-git() {
 	pkgdesc='Runtime for vim and gvim'
+	depends=('gawk' 'python')
 	provides=("vim-runtime=${pkgver}-${pkgrel}")
 	backup=('etc/vimrc')
 

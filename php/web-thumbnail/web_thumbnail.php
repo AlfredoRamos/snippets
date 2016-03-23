@@ -1,23 +1,39 @@
 <?php
+
 /**
- * Simple, small and useful function to
- * get thumbnail image from a URL using
- * http://s.wordpress.com/mshots/v1/
+ * Generate a web thumbnail using mshots
+ * @param	string	$url		The URL to generate the thumbnail
+ * @param	array	$options	Options for mshots
+ * @return	string|bool
  */
-function get_web_thumbnail ($url = null, $width = null, $height = null) {
+function web_thumbnail($url = '', $options = []) {
+    if (empty($url)) {
+        return false;
+    }
+    
+    $defaults = [
+	    'w' => null,
+	    'h' => null
+    ];
+    $options = array_merge($defaults, $options);
+    
+	$uri = 'https://www.wordpress.com/mshots/v1/%1$s?%2$s';
+	$tmp = [];
 	
-	$mshots = 'http://s.wordpress.com/mshots/v1/';
-	$thumbnail = '';
+	// Clean URL
+	$tmp['clean'] = preg_replace('/^http(s)?\:\/\//i', '', $url);
+	$tmp['clean'] = preg_replace('/www\./i', '', $tmp['clean']);
+	$tmp['clean'] = preg_replace('/\/$/i', '', $tmp['clean']);
 	
-	if (isset($url)) {
+	// Build options query
+	$tmp['query'] = http_build_query($options);
+	$tmp['query'] = isset($options['w'], $options['h']) ? $tmp['query'] : '';
 	
-		$clean_url = preg_replace('/^http(s)?\:\/\//i', '', $url);	
-		$clean_url = preg_replace('/www\./i', '', $clean_url);
+	// Generate URI
+	$uri = vsprintf($uri, [
+	    $tmp['clean'],
+	    $tmp['query']
+	]);
 	
-		$thumbnail .= $mshots.$clean_url.(isset($width) ? '?w='.rawurlencode($width) : '').(isset($height) ? '&h='.rawurlencode($height) : '');
-		
-	}
-	
-	return $thumbnail;
-	
+	return $uri;
 }

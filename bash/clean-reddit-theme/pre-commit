@@ -51,6 +51,6 @@ fi
 scssfile=stylesheet.scss
 cssfile=dist/stylesheet.css
 licenseheader="$(head -n 8 ${scssfile})"
-sassc -t compressed ${scssfile} ${cssfile}
+sass -Ct compressed ${scssfile} ${cssfile} --sourcemap=none
 printf '%s\n%s' "${licenseheader}" "$(cat ${cssfile})" > ${cssfile}
 git add ${cssfile}

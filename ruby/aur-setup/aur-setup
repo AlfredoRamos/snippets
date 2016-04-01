@@ -13,19 +13,19 @@ class AurSetUp
   def initialize
     @@app = {
       :name => File.basename(__FILE__),
-      :version => '0.2.0'
+      :version => '0.2.1'
     }
 
-    @@config = {
+    @config = {
       :file => File.absolute_path(File.join(Dir.home, '.config', 'aur-setup.conf'))
     }
 
-    if !Dir.exist?(File.dirname(@@config[:file]))
-      Dir.mkdir(File.dirname(@@config[:file]))
+    if !Dir.exist?(File.dirname(@config[:file]))
+      Dir.mkdir(File.dirname(@config[:file]))
     end
 
-    if !File.exist?(@@config[:file])
-      File.open(@@config[:file], 'w') do |f| 
+    if !File.exist?(@config[:file])
+      File.open(@config[:file], 'w') do |f| 
         data = "[AUR]%3$sroot=%1$s%3$shooks=%2$s%3$s%3$s" % [
           File.absolute_path(File.join(Dir.home, 'Public', 'AUR')),
           File.absolute_path(File.join(File.dirname(__FILE__), 'aur-git-hooks')),
@@ -38,16 +38,16 @@ class AurSetUp
       end
     end
 
-    @@config[:data] = ParseConfig.new(@@config[:file])
+    @config[:data] = ParseConfig.new(@config[:file])
 
-    @@config[:repos] = Dir.entries(@@config[:data]['AUR']['root'])
-    @@config[:hooks] = Dir.entries(@@config[:data]['AUR']['hooks'])
+    @config[:repos] = Dir.entries(@config[:data]['AUR']['root'])
+    @config[:hooks] = Dir.entries(@config[:data]['AUR']['hooks'])
 
     # Remove uneeded directories
-    @@config[:repos].delete('.')
-    @@config[:repos].delete('..')
-    @@config[:hooks].delete('.')
-    @@config[:hooks].delete('..')
+    @config[:repos].delete('.')
+    @config[:repos].delete('..')
+    @config[:hooks].delete('.')
+    @config[:hooks].delete('..')
 
     @@colors = {
       :reset    => "\e[0m",
@@ -90,22 +90,28 @@ class AurSetUp
     message :msg => '    Display this information.'
     message
     message :msg => 'Configuration:'
-    message :msg => '    User-defined configuration will be loaded from %1$s' % [@@config[:file]]
+    message :msg => '    User-defined configuration will be loaded from %1$s' % [@config[:file]]
     exit
   end
 
   def setup_git
     heading :msg => 'Setting up repositories...', :type => 'success'
 
-    if (@@config[:data]['Git']['user'].empty? or @@config[:data]['Git']['email'].empty?)
+    if (@config[:data]['Git']['user'].empty? or @config[:data]['Git']['email'].empty?)
       subheading :msg => 'Please set a Git user and email...', :type => 'error'
+      subheading :msg => 'Config file located at ', :type => 'info', :newline => 0
+      message :msg => @config[:file]
       exit(false)
     end
 
+    if @config[:repos].empty?
+      subheading :msg => 'No repositories found...', :type => 'warning'
+    end
+
     # Setup git config
-    @@config[:repos].each do |repo|
+    @config[:repos].each do |repo|
       # Get absolute path of the repository
-      path = File.absolute_path(File.join(@@config[:data]['AUR']['root'], repo))
+      path = File.absolute_path(File.join(@config[:data]['AUR']['root'], repo))
 
       subheading :msg => '%1$s... ' % [repo], :type => 'info', :newline => 0
 
@@ -113,8 +119,8 @@ class AurSetUp
         Dir.chdir(path)
 
         # Git config
-        system('git config --local --replace-all user.name "%1$s"' % [@@config[:data]['Git']['user']])
-        system('git config --local --replace-all user.email "%1$s"' % [@@config[:data]['Git']['email']])
+        system('git config --local --replace-all user.name "%1$s"' % [@config[:data]['Git']['user']])
+        system('git config --local --replace-all user.email "%1$s"' % [@config[:data]['Git']['email']])
 
         message :msg => 'done', :type => 'success'
       else
@@ -122,22 +128,26 @@ class AurSetUp
       end
     end
 
-    Dir.chdir(@@config[:data]['AUR']['root']) if Dir.exist?(@@config[:data]['AUR']['root'])
+    Dir.chdir(@config[:data]['AUR']['root']) if Dir.exist?(@config[:data]['AUR']['root'])
   end
 
   def setup_hooks
     heading :msg => 'Setting up git hooks...', :type => 'success'
 
-    @@config[:repos].each do |repo|
-      path = File.absolute_path(File.join(@@config[:data]['AUR']['root'], repo, '.git', 'hooks'))
+    if @config[:repos].empty?
+      subheading :msg => 'No repositories found...', :type => 'warning'
+    end
+
+    @config[:repos].each do |repo|
+      path = File.absolute_path(File.join(@config[:data]['AUR']['root'], repo, '.git', 'hooks'))
 
       subheading :msg => '%1$s...' % [repo], :type => 'info', :newline => 0
 
       if Dir.exist?(path)
         Dir.chdir(path)
 
-        @@config[:hooks].each do |hook|
-          file = File.join(@@config[:data]['AUR']['hooks'], hook)
+        @config[:hooks].each do |hook|
+          file = File.join(@config[:data]['AUR']['hooks'], hook)
           symlink = File.join(path, hook.chomp('.hook'))
 
           if File.file?(file) and !File.symlink?(symlink)
@@ -151,7 +161,7 @@ class AurSetUp
       end
     end
 
-    Dir.chdir(@@config[:data]['AUR']['root']) if Dir.exist?(@@config[:data]['AUR']['root'])
+    Dir.chdir(@config[:data]['AUR']['root']) if Dir.exist?(@config[:data]['AUR']['root'])
   end
 
   def init

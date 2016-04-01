@@ -1,8 +1,8 @@
 ### Info
 
-A script to manage git hooks for the AUR
+A Ruby script to manage git hooks for the AUR
 
 ### Dependencies
 
-- Ruby
+- `pkgbuild-introspection` package [[info](https://www.archlinux.org/packages/community/any/pkgbuild-introspection/)]
 - `parseconfig` gem [[info](https://rubygems.org/gems/parseconfig)]

@@ -11,9 +11,9 @@ require 'parseconfig'
 
 class AurSetUp
   def initialize
-    @@app = {
+    @app = {
       :name => File.basename(__FILE__),
-      :version => '0.2.1'
+      :version => '0.2.2'
     }
 
     @config = {
@@ -49,7 +49,7 @@ class AurSetUp
     @config[:hooks].delete('.')
     @config[:hooks].delete('..')
 
-    @@colors = {
+    @colors = {
       :reset    => "\e[0m",
       :bgreen   => "\e[1;32m",
       :bblue    => "\e[1;34m",
@@ -60,7 +60,7 @@ class AurSetUp
   end
 
   def copyright
-    message :msg => '%1$s %2$s' % [@@app[:name], @@app[:version]]
+    message :msg => '%1$s %2$s' % [@app[:name], @app[:version]]
     message
     message :msg => 'AUR set-up script helper'
     message
@@ -72,7 +72,7 @@ class AurSetUp
   end
 
   def version
-    message :msg => '%1$s %2$s' % [@@app[:name], @@app[:version]]
+    message :msg => '%1$s %2$s' % [@app[:name], @app[:version]]
     exit
   end
 
@@ -80,7 +80,7 @@ class AurSetUp
     copyright
     message
     message :msg => 'Usage:'
-    message :msg => '    %1$s [<options>]' % [@@app[:name]]
+    message :msg => '    %1$s [<options>]' % [@app[:name]]
     message
     message :msg => 'Options:'
     message :msg => '  --version'
@@ -190,18 +190,18 @@ class AurSetUp
     args[:newline] ||= 1
     color = case args[:type]
             when 'info'
-              @@colors[:bblue]
+              @colors[:bblue]
             when 'success'
-              @@colors[:bgreen]
+              @colors[:bgreen]
             when 'warning'
-              @@colors[:byellow]
+              @colors[:byellow]
             when 'error'
-              @@colors[:bred]
+              @colors[:bred]
             else
-              @@colors[:reset]
+              @colors[:reset]
             end
 
-    msg = "#{color}==>#{@@colors[:reset]} #{@@colors[:bwhite]}#{args[:msg]}#{@@colors[:reset]}"
+    msg = "#{color}==>#{@colors[:reset]} #{@colors[:bwhite]}#{args[:msg]}#{@colors[:reset]}"
 
     if args[:newline] === 1
       puts msg
@@ -216,18 +216,18 @@ class AurSetUp
     args[:newline] ||= 1
     color = case args[:type]
             when 'info'
-              @@colors[:bblue]
+              @colors[:bblue]
             when 'success'
-              @@colors[:bgreen]
+              @colors[:bgreen]
             when 'warning'
-              @@colors[:byellow]
+              @colors[:byellow]
             when 'error'
-              @@colors[:bred]
+              @colors[:bred]
             else
-              @@colors[:reset]
+              @colors[:reset]
             end
 
-    msg = " #{color}->#{@@colors[:reset]} #{@@colors[:bwhite]}#{args[:msg]}#{@@colors[:reset]}"
+    msg = " #{color}->#{@colors[:reset]} #{@colors[:bwhite]}#{args[:msg]}#{@colors[:reset]}"
 
     if args[:newline] === 1
       puts msg
@@ -242,18 +242,18 @@ class AurSetUp
     args[:newline] ||= 1
     color = case args[:type]
             when 'info'
-              @@colors[:bblue]
+              @colors[:bblue]
             when 'success'
-              @@colors[:bgreen]
+              @colors[:bgreen]
             when 'warning'
-              @@colors[:byellow]
+              @colors[:byellow]
             when 'error'
-              @@colors[:bred]
+              @colors[:bred]
             else
-              @@colors[:reset]
+              @colors[:reset]
             end
 
-    msg = "#{color}#{args[:msg]}#{@@colors[:reset]}"
+    msg = "#{color}#{args[:msg]}#{@colors[:reset]}"
 
     if args[:newline] === 1
       puts msg

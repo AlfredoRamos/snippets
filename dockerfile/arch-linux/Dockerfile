@@ -10,5 +10,5 @@ RUN pacman-key --updatedb
 
 # Upgrade system
 RUN pacman -Syyu --noconfirm
-RUN pacman -Scc --noconfirm
 RUN pacman-db-upgrade
+RUN pacman -Scc --noconfirm

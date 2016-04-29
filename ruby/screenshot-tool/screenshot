@@ -9,7 +9,7 @@ class Screenshot
   def initialize
     @@app = {
       :name => File.basename(__FILE__),
-      :version  => '0.2.0'
+      :version  => '0.3.0'
     }
 
     @@config = {
@@ -18,7 +18,8 @@ class Screenshot
       :path => File.expand_path('~/Pictures/Screenshots'),
       :name => 'screenshot_%1$s_%2$s.%3$s',
       :ext  => 'png',
-      :type => 'full'
+      :type => 'full',
+      :delay => 0,
     }
 
     @@colors = {
@@ -62,6 +63,9 @@ class Screenshot
     message :msg => '  --path=<path>'
     message :msg => '    Path where screenshot will be saved.'
     message
+    message :msg => '  --delay=<number>'
+    message :msg => '    Delay in seconds.'
+    message
     message :msg => '  --version'
     message :msg => '    Display the version of this script.'
     message
@@ -99,6 +103,11 @@ class Screenshot
 
     subheading :msg => "Type:\t", :type => 'info', :newline => 0
     message :msg => @@config[:type]
+
+    # Delay
+    if (@@config[:delay] > 0 and @@config[:type] == 'full')
+      sleep(@@config[:delay])
+    end
 
     # Save screenshot
     system('%1$s %2$s' % [@@config[:bin], args])
@@ -138,6 +147,7 @@ class Screenshot
 
     @@config[:type] = args['type'] if !args['type'].nil?
     @@config[:path] = File.expand_path(args['path']) if !args['path'].nil?
+    @@config[:delay] = args['delay'].to_i if !args['type'].nil?
 
     args
   end

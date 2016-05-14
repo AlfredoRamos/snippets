@@ -8,164 +8,18 @@ $stdout.sync = true
 #
 
 require 'parseconfig'
+require 'logger'
 
 class AurSetUp
+  VERSION = '0.3.0'
+
   def initialize
-    @app = {
-      :name => File.basename(__FILE__),
-      :version => '0.2.2'
-    }
-
-    @config = {
-      :file => File.absolute_path(File.join(Dir.home, '.config', 'aur-setup.conf'))
-    }
-
-    if !Dir.exist?(File.dirname(@config[:file]))
-      Dir.mkdir(File.dirname(@config[:file]))
-    end
-
-    if !File.exist?(@config[:file])
-      File.open(@config[:file], 'w') do |f| 
-        data = "[AUR]%3$sroot=%1$s%3$shooks=%2$s%3$s%3$s" % [
-          File.absolute_path(File.join(Dir.home, 'Public', 'AUR')),
-          File.absolute_path(File.join(File.dirname(__FILE__), 'aur-git-hooks')),
-          "\n"
-        ]
-
-        data += '[Git]%3$suser=%1$s%3$semail=%2$s%3$s' % ['', '', "\n"]
-
-        f.write(data)
-      end
-    end
-
-    @config[:data] = ParseConfig.new(@config[:file])
-
-    @config[:repos] = Dir.entries(@config[:data]['AUR']['root'])
-    @config[:hooks] = Dir.entries(@config[:data]['AUR']['hooks'])
-
-    # Remove uneeded directories
-    @config[:repos].delete('.')
-    @config[:repos].delete('..')
-    @config[:hooks].delete('.')
-    @config[:hooks].delete('..')
-
-    @colors = {
-      :reset    => "\e[0m",
-      :bgreen   => "\e[1;32m",
-      :bblue    => "\e[1;34m",
-      :bwhite   => "\e[1;37m",
-      :byellow  => "\e[1;33m",
-      :bred     => "\e[1;31m"
-    }
+    setup_logger
+    load_settings
   end
 
-  def copyright
-    message :msg => '%1$s %2$s' % [@app[:name], @app[:version]]
-    message
-    message :msg => 'AUR set-up script helper'
-    message
-    message :msg => 'Copyright (c) 2015 Alfredo Ramos'
-    message
-    message :msg => 'This is free software; see the source for copying conditions. There is NO'
-    message :msg => 'WARRANTY; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.'
-    message :msg => 'See the GNU General Public License version 3 for more details.'
-  end
-
-  def version
-    message :msg => '%1$s %2$s' % [@app[:name], @app[:version]]
-    exit
-  end
-
-  def help
-    copyright
-    message
-    message :msg => 'Usage:'
-    message :msg => '    %1$s [<options>]' % [@app[:name]]
-    message
-    message :msg => 'Options:'
-    message :msg => '  --version'
-    message :msg => '    Display the version of this script.'
-    message
-    message :msg => '  --help'
-    message :msg => '    Display this information.'
-    message
-    message :msg => 'Configuration:'
-    message :msg => '    User-defined configuration will be loaded from %1$s' % [@config[:file]]
-    exit
-  end
-
-  def setup_git
-    heading :msg => 'Setting up repositories...', :type => 'success'
-
-    if (@config[:data]['Git']['user'].empty? or @config[:data]['Git']['email'].empty?)
-      subheading :msg => 'Please set a Git user and email...', :type => 'error'
-      subheading :msg => 'Config file located at ', :type => 'info', :newline => 0
-      message :msg => @config[:file]
-      exit(false)
-    end
-
-    if @config[:repos].empty?
-      subheading :msg => 'No repositories found...', :type => 'warning'
-    end
-
-    # Setup git config
-    @config[:repos].each do |repo|
-      # Get absolute path of the repository
-      path = File.absolute_path(File.join(@config[:data]['AUR']['root'], repo))
-
-      subheading :msg => '%1$s... ' % [repo], :type => 'info', :newline => 0
-
-      if File.directory?(path)
-        Dir.chdir(path)
-
-        # Git config
-        system('git config --local --replace-all user.name "%1$s"' % [@config[:data]['Git']['user']])
-        system('git config --local --replace-all user.email "%1$s"' % [@config[:data]['Git']['email']])
-
-        message :msg => 'done', :type => 'success'
-      else
-        message :msg => 'fail', :type => 'error'
-      end
-    end
-
-    Dir.chdir(@config[:data]['AUR']['root']) if Dir.exist?(@config[:data]['AUR']['root'])
-  end
-
-  def setup_hooks
-    heading :msg => 'Setting up git hooks...', :type => 'success'
-
-    if @config[:repos].empty?
-      subheading :msg => 'No repositories found...', :type => 'warning'
-    end
-
-    @config[:repos].each do |repo|
-      path = File.absolute_path(File.join(@config[:data]['AUR']['root'], repo, '.git', 'hooks'))
-
-      subheading :msg => '%1$s...' % [repo], :type => 'info', :newline => 0
-
-      if Dir.exist?(path)
-        Dir.chdir(path)
-
-        @config[:hooks].each do |hook|
-          file = File.join(@config[:data]['AUR']['hooks'], hook)
-          symlink = File.join(path, hook.chomp('.hook'))
-
-          if File.file?(file) and !File.symlink?(symlink)
-            File.symlink(file, symlink)
-          end
-        end
-
-        message :msg => 'done', :type => 'success'
-      else
-        message :msg => 'fail', :type => 'error'
-      end
-    end
-
-    Dir.chdir(@config[:data]['AUR']['root']) if Dir.exist?(@config[:data]['AUR']['root'])
-  end
-
-  def init
-    args = parse_args
+  def run
+    args = parse_arguments
 
     if args.has_key?('version')
       # Show version
@@ -174,93 +28,191 @@ class AurSetUp
       # Show help
       help
     else
-      setup_git
-      setup_hooks
+      setup_git_config
+      setup_git_hooks
+    end
+  end
+
+  def version
+    puts '%1$s %2$s' % [File.basename(__FILE__), VERSION]
+    exit
+  end
+
+  def help
+    copyright
+    puts
+    puts 'Usage: %s [<options>]' % File.basename(__FILE__)
+    puts
+    puts 'Options:'
+    puts '  --version'
+    puts '    Display the version of this script.'
+    puts
+    puts '  --help'
+    puts '    Display this information.'
+  end
+
+  def setup_git_config
+    begin
+      if @config['git']['name'].empty? or @config['git']['email'].empty?
+        raise 'You need to set the git user name and email'
+      end
+
+      puts ':: Setting up repositories'
+
+      git_repositories.each do |repo|
+        if Dir.exist?(repo)
+          Dir.chdir(repo)
+
+          # Git config
+          system('git config --local --replace-all user.name "%s"' % @config['git']['name'])
+          system('git config --local --replace-all user.email "%s"' % @config['git']['email'])
+        end
+
+        puts ' -> %s... done' % File.basename(repo)
+      end
+
+      Dir.chdir(File.expand_path(@config['aur']['root']))
+    rescue => error
+      @logger.error(error.message)
+    end
+  end
+
+  def setup_git_hooks
+    begin
+      if @config['aur']['root'].empty? or @config['aur']['hooks'].empty?
+        raise 'You need to set the AUR root and hooks root path'
+      end
+
+      puts ':: Setting up git hooks'
+
+      git_repositories.each do |repo|
+        git_hooks.each do |hook|
+          file = File.join(File.expand_path(@config['aur']['hooks']), hook)
+          target = File.join(repo, '.git', 'hooks', hook).chomp('.hook')
+
+          # Create symbolic link
+          if File.exist?(file) and !File.symlink?(target)
+            File.symlink(file, target)
+          end
+        end
+
+        # Get installed hooks
+        hooks = Dir.entries(File.join(repo, '.git', 'hooks')) - ['.', '..']
+
+        # Delete sample hooks
+        hooks.delete_if do |hook|
+          hook.include?('.sample')
+        end
+
+        # Show message
+        puts ' -> %1$s... %2$s' % [File.basename(repo), (!hooks.empty? ? 'done' : 'fail')]
+      end
+    rescue => error
+      @logger.error(error.message)
     end
   end
 
   private
-  def parse_args
-    ARGV.join(' ').scan(/--?([^=\s]+)(?:=(\S+))?/).to_h
-  end
-
-  def heading(args = {})
-    args[:msg] ||= ''
-    args[:type] ||= ''
-    args[:newline] ||= 1
-    color = case args[:type]
-            when 'info'
-              @colors[:bblue]
-            when 'success'
-              @colors[:bgreen]
-            when 'warning'
-              @colors[:byellow]
-            when 'error'
-              @colors[:bred]
-            else
-              @colors[:reset]
-            end
-
-    msg = "#{color}==>#{@colors[:reset]} #{@colors[:bwhite]}#{args[:msg]}#{@colors[:reset]}"
-
-    if args[:newline] === 1
-      puts msg
-    else
-      print msg
+  def setup_logger
+    begin
+      @logger = Logger.new($stdout)
+      @logger.datetime_format = '%Y-%m-%d %H:%M:%S %:z'
+      @logger.formatter = proc do |severity, datetime, progname, msg|
+        '[%1$s] %2$s :: %3$s%4$s' % [severity, datetime, msg, "\n"]
+      end
+    rescue => error
+      abort error.message
     end
   end
 
-  def subheading(args = {})
-    args[:msg] ||= ''
-    args[:type] ||= ''
-    args[:newline] ||= 1
-    color = case args[:type]
-            when 'info'
-              @colors[:bblue]
-            when 'success'
-              @colors[:bgreen]
-            when 'warning'
-              @colors[:byellow]
-            when 'error'
-              @colors[:bred]
-            else
-              @colors[:reset]
-            end
+  def load_settings
+    begin
+      file = File.absolute_path(File.join(Dir.home, '.config', 'aur-setup.conf'))
 
-    msg = " #{color}->#{@colors[:reset]} #{@colors[:bwhite]}#{args[:msg]}#{@colors[:reset]}"
+      # Create config file if not exist
+      if !File.exist?(file)
+        @logger.warn('Config file does not exist' % file)
 
-    if args[:newline] === 1
-      puts msg
-    else
-      print msg
+        File.open(file, 'w') do |file|
+          file.puts '[aur]'
+          file.puts 'root=""'
+          file.puts 'hooks=""'
+          file.puts
+          file.puts '[git]'
+          file.puts 'name=""'
+          file.puts 'email=""'
+        end
+
+        @logger.info('Config file created at %s' % file)
+      end
+
+      # Parse config file
+      @config = ParseConfig.new(file)
+    rescue => error
+      @logger.error(error.message)
     end
   end
 
-  def message(args = {})
-    args[:msg] ||= ''
-    args[:type] ||= ''
-    args[:newline] ||= 1
-    color = case args[:type]
-            when 'info'
-              @colors[:bblue]
-            when 'success'
-              @colors[:bgreen]
-            when 'warning'
-              @colors[:byellow]
-            when 'error'
-              @colors[:bred]
-            else
-              @colors[:reset]
-            end
-
-    msg = "#{color}#{args[:msg]}#{@colors[:reset]}"
-
-    if args[:newline] === 1
-      puts msg
-    else
-      print msg
-    end
+  def parse_arguments
+    return ARGV.join(' ').scan(/--?([^=\s]+)(?:=(\S+))?/).to_h
   end
+
+  def copyright
+    puts '%1$s %2$s - A simple AUR setup helper' % [File.basename(__FILE__), VERSION]
+    puts
+    puts 'Copyright (C) 2015 Alfredo Ramos'
+    puts
+    puts 'This is free software; see the source for copying conditions. There is NO'
+    puts 'WARRANTY; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.'
+    puts 'See the GNU General Public License version 3 for more details.'
+  end
+
+  def git_repositories
+    begin
+      if @config['aur']['root'].empty?
+        raise 'You need to set the AUR root path'
+      end
+
+      repos = Dir.entries(File.expand_path(@config['aur']['root'])) - ['.', '..']
+
+      if repos.empty?
+        raise 'No repositories found'
+      end
+
+      repos.map! do |repo|
+        # Get absolute path
+        repo = File.absolute_path(File.join(File.expand_path(@config['aur']['root']), repo))
+      end
+    rescue => error
+      @logger.error(error.message)
+    end
+
+    return repos
+  end
+
+  def git_hooks
+    begin
+      if @config['aur']['hooks'].empty?
+        raise 'You need to set the git hooks root path'
+      end
+
+      hooks = Dir.entries(File.expand_path(@config['aur']['hooks'])) - ['.', '..']
+
+      # Do not include files that are not hooks
+      hooks.delete_if do |hook|
+        !hook.include?('.hook') or !File.file?(File.join(File.expand_path(@config['aur']['hooks']), hook))
+      end
+
+      if hooks.empty?
+        raise 'No hooks found'
+      end
+    rescue => error
+      @logger.error(error.message)
+    end
+
+    return hooks
+  end
+
 end
 
-AurSetUp.new.init
+AurSetUp.new.run

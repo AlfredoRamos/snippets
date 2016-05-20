@@ -8,41 +8,52 @@
 
 pkgbase=vim
 pkgname=('vim-git' 'vim-runtime-git')
-pkgver=7.4.1710.0.g17fe5e1
+pkgver=7.4.1832.0.gdc303bc
 pkgrel=1
 arch=('i686' 'x86_64')
 license=('custom:vim')
-url="http://www.vim.org"
-makedepends=('gpm' 'libxt' 'desktop-file-utils' 'ruby' 'python' 'lua' 'gawk' 'git')
+url='http://www.vim.org'
+makedepends=('gpm' 'python2' 'python' 'ruby' 'libxt' 'lua' 'gawk' 'tcl' 'tcsh')
 source=(
-	"${pkgbase}::git+https://github.com/${pkgbase}/${pkgbase}.git"
+	'git+http://github.com/vim/vim.git'
 	'vimrc'
 	'archlinux.vim'
+	'https://framagit.org/Damien43/patches/raw/master/vim/perl-5.22.2.patch'
 )
 sha512sums=(
 	'SKIP'
 	'c76e71bc3e9aaf3899ed3d7d4c0a9456da61c7f056ce0826b281fefea309f158186185f0356ff9b8aab6925465b3f24bebfd9272fda0e2d55e96061f68ff8bad'
 	'935c15a4cc55b9209e6b6c974df765cc6683ae32ccea38acadc825bbc9c60b97ebe14aec8814b7e52080c0d0ded520a68ff1880ab64f320b08c181b6bf862edb'
+	'c45f68f013d588236d05e285de8445897ec8d8d88460e64dbd436f6b32cf2b748fbebaf4e071987b72a0bac4eccd1179dbbf5227ec956cf1975c20c99e355413'
 )
 
 pkgver() {
 	# Updating package version
-	cd ${srcdir}/${pkgbase}
+	cd "${srcdir}"/${pkgbase}
 	git describe --long --tags | sed -r 's/^v//;s/-/./g'
 }
 
 prepare() {
-	cd ${srcdir}/${pkgbase}/src
+	# Create build directory
+	mkdir -p "${srcdir}"/build
+	cp -a "${srcdir}"/${pkgbase}/* "${srcdir}"/build
 
-	# Define the place for the global vimrc file (set to /etc/vimrc)
-	sed -i 's|^.*\(#define SYS_.*VIMRC_FILE.*"\) .*$|\1|' feature.h
-	sed -i 's|^.*\(#define VIMRC_FILE.*"\) .*$|\1|' feature.h
+	cd "${srcdir}"/build
 
+	# define the place for the global (g)vimrc file (set to /etc/vimrc)
+	sed -i 's|^.*\(#define SYS_.*VIMRC_FILE.*"\) .*$|\1|' src/feature.h
+	sed -i 's|^.*\(#define VIMRC_FILE.*"\) .*$|\1|' src/feature.h
+
+	# Fix perl 5.22.2 issue
+	# https://github.com/vim/vim/issues/790
+	patch -Np1 < ../perl-5.22.2.patch
+
+	cd src
 	autoconf
 }
 
 build() {
-	cd ${srcdir}/${pkgbase}
+	cd "${srcdir}"/build
 
 	./configure \
 		--prefix=/usr \
@@ -57,23 +68,33 @@ build() {
 		--enable-cscope \
 		--enable-netbeans \
 		--enable-perlinterp=dynamic \
-		--enable-pythoninterp=no \
+		--enable-pythoninterp=dynamic \
 		--enable-python3interp=dynamic \
 		--enable-rubyinterp=dynamic \
-		--enable-luainterp=dynamic
+		--enable-luainterp=dynamic \
+		--enable-tclinterp=dynamic
 	make
 }
 
 package_vim-git() {
-	pkgdesc='Vi Improved, a highly configurable, improved version of the vi text editor (with support for additional scripting languages). Development version.'
-	depends=("vim-runtime=${pkgver}-${pkgrel}" 'gpm' 'libxt' 'acl' 'ruby' 'python' 'lua')
-	conflicts=('vim-minimal' 'vim-python3' 'gvim')
-	provides=("vim=${pkgver}-${pkgrel}" "vim-minimal=${pkgver}-${pkgrel}" "vim-python3=${pkgver}-${pkgrel}" 'xxd')
+	pkgdesc='Vi Improved, a highly configurable, improved version of the vi text editor. Development version.'
+	depends=("vim-runtime=${pkgver}-${pkgrel}" 'gpm' 'acl' 'libxt')
+	optdepends=(
+		'python2: Python 2 language support'
+		'python: Python 3 language support'
+		'ruby: Ruby language support'
+		'lua: Lua language support'
+		'perl: Perl language support'
+		'tcl: Tcl language support'
+	)
+	conflicts=('gvim' 'vim-minimal' 'vim-python3')
+	provides=("vim-minimal=${pkgver}-${pkgrel}" "vim-python3=${pkgver}-${pkgrel}" "xxd=${pkgver}-${pkgrel}")
+	replaces=('vim-python3' 'vim-minimal')
 
-	cd ${srcdir}/${pkgbase}
-	make -j1 VIMRCLOC=/etc DESTDIR=${pkgdir} install
+	cd "${srcdir}"/build
+	make -j1 VIMRCLOC=/etc DESTDIR="${pkgdir}" install
 
-	# Provided by (n)vi in core
+	# provided by (n)vi in core
 	rm "${pkgdir}"/usr/bin/{ex,view}
 
 	# delete some manpages
@@ -82,28 +103,27 @@ package_vim-git() {
 			cd ${_mandir}
 			rm -f ex.1 view.1 # provided by (n)vi
 			rm -f evim.1    # this does not make sense if we have no GUI
-  		done
+		done
 
-	# Runtime provided by runtime package
-	rm -r "${pkgdir}"/usr/share/vim
+		# Runtime provided by runtime package
+		rm -r "${pkgdir}"/usr/share/vim
 
-	# License
-	install -Dm644 runtime/doc/uganda.txt \
-		"${pkgdir}"/usr/share/licenses/${pkgname}/license.txt
+		# license
+		install -Dm644 runtime/doc/uganda.txt \
+			"${pkgdir}"/usr/share/licenses/${pkgname}/license.txt
 }
 
 package_vim-runtime-git() {
-	pkgdesc='Runtime for vim and gvim'
-	depends=('gawk' 'python')
+	pkgdesc='Runtime for vim and gvim. Development version.'
+	depends=('python' 'sh' 'gawk' 'tcsh')
 	conflicts=('vim-runtime')
 	provides=("vim-runtime=${pkgver}-${pkgrel}")
 	backup=('etc/vimrc')
 
-	cd ${srcdir}/${pkgbase}
-	
+	cd "${srcdir}"/build
 	local versiondir=$(printf "${pkgver}" | sed -r 's/^([0-9]+)\.([0-9]+)(.*)/\1\2/')
 
-	(cd src && make -j1 VIMRCLOC=/etc DESTDIR="${pkgdir}" installruntime install-languages installtools)
+	make -j1 VIMRCLOC=/etc DESTDIR="${pkgdir}" install
 	# man and bin files belong to 'vim'
 	rm -r "${pkgdir}"/usr/share/man/ "${pkgdir}"/usr/bin/
 

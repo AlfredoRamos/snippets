@@ -48,9 +48,22 @@ fi
 # If there are whitespace errors, print the offending file names and fail.
 #exec git diff-index --check --cached $against --
 
-scssfile=stylesheet.scss
-cssfile=dist/stylesheet.css
-licenseheader="$(head -n 8 ${scssfile})"
-sass -Ct compressed ${scssfile} ${cssfile} --sourcemap=none
-printf '%s\n%s' "${licenseheader}" "$(cat ${cssfile})" > ${cssfile}
-git add ${cssfile}
+update_dist_files() {
+	local scss='stylesheet.scss'
+	local css='dist/stylesheet.css'
+	local license="$(head -n 8 ${scss})"
+
+	# Generate CSS file
+	sass -Ct compressed "${scss}" "${css}" --sourcemap=none
+
+	# Add license header
+	printf '%s\n%s' "${license}" "$(cat ${css})" > "${css}"
+
+	# Add files (git)
+	if [[ -f "${css}" ]]; then
+		git add "${css}"
+	fi
+}
+
+# Update CSS files
+update_dist_files

@@ -60,6 +60,7 @@ for database in "${MYSQL_DATABASES[@]}"; do
 	mysqldump \
 		--log-error="${BASE_DIR}/$(get_filename 'schema' '%F').log" \
 		--host="${MYSQL_HOST}" \
+		--port=${MYSQL_PORT} \
 		--user="${MYSQL_USER}" \
 		--password="${MYSQL_PASSWORD}" \
 		--result-file="$(get_filename ${database} '' 'schema').sql" \
@@ -72,6 +73,7 @@ for database in "${MYSQL_DATABASES[@]}"; do
 	mysqldump \
 		--log-error="${BASE_DIR}/$(get_filename 'data' '%F').log" \
 		--host="${MYSQL_HOST}" \
+		--port=${MYSQL_PORT} \
 		--user="${MYSQL_USER}" \
 		--password="${MYSQL_PASSWORD}" \
 		--result-file="$(get_filename ${database} '' 'data').sql" \

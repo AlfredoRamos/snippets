@@ -8,7 +8,7 @@
 
 pkgbase=vim
 pkgname=('vim-git' 'vim-runtime-git')
-pkgver=7.4.1832.0.gdc303bc
+pkgver=7.4.1944.0.gb5b9575
 pkgrel=1
 arch=('i686' 'x86_64')
 license=('custom:vim')
@@ -18,13 +18,11 @@ source=(
 	'git+http://github.com/vim/vim.git'
 	'vimrc'
 	'archlinux.vim'
-	'https://framagit.org/Damien43/patches/raw/master/vim/perl-5.22.2.patch'
 )
 sha512sums=(
 	'SKIP'
 	'c76e71bc3e9aaf3899ed3d7d4c0a9456da61c7f056ce0826b281fefea309f158186185f0356ff9b8aab6925465b3f24bebfd9272fda0e2d55e96061f68ff8bad'
 	'935c15a4cc55b9209e6b6c974df765cc6683ae32ccea38acadc825bbc9c60b97ebe14aec8814b7e52080c0d0ded520a68ff1880ab64f320b08c181b6bf862edb'
-	'c45f68f013d588236d05e285de8445897ec8d8d88460e64dbd436f6b32cf2b748fbebaf4e071987b72a0bac4eccd1179dbbf5227ec956cf1975c20c99e355413'
 )
 
 pkgver() {
@@ -43,10 +41,6 @@ prepare() {
 	# define the place for the global (g)vimrc file (set to /etc/vimrc)
 	sed -i 's|^.*\(#define SYS_.*VIMRC_FILE.*"\) .*$|\1|' src/feature.h
 	sed -i 's|^.*\(#define VIMRC_FILE.*"\) .*$|\1|' src/feature.h
-
-	# Fix perl 5.22.2 issue
-	# https://github.com/vim/vim/issues/790
-	patch -Np1 < ../perl-5.22.2.patch
 
 	cd src
 	autoconf

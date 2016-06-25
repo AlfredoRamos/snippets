@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # encoding: UTF-8
-$stdout.sync = true
+$stdout.sync = $stderr.sync = true
 
 #
 # $HOME/.local/bin/aur-setup
@@ -11,7 +11,7 @@ require 'parseconfig'
 require 'logger'
 
 class AurSetUp
-  VERSION = '0.3.0'
+  VERSION = '0.3.1'
 
   def initialize
     setup_logger
@@ -21,10 +21,10 @@ class AurSetUp
   def run
     args = parse_arguments
 
-    if args.has_key?('version')
+    if args.key?('version')
       # Show version
       version
-    elsif args.has_key?('help')
+    elsif args.key?('help')
       # Show help
       help
     else

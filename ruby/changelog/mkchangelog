@@ -6,7 +6,7 @@ require 'logger'
 
 class Changelog
 
-  VERSION = '0.1.2'
+  VERSION = '0.1.3'
 
   def initialize
     # Logger
@@ -56,10 +56,13 @@ class Changelog
 
     tags.each do |tag|
       t = tag.split('|')
-      data.push({
+      d = {
         :tag => t.first,
         :date => t.last
-      })
+      }
+      # Fix for lightweight tags
+      d[:date] = nil if d[:tag] == d[:date]
+      data.push(d)
     end
 
     data

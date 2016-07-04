@@ -6,7 +6,7 @@ require 'logger'
 
 class Changelog
 
-  VERSION = '0.1.0'
+  VERSION = '0.1.1'
 
   def initialize
     # Logger
@@ -31,7 +31,6 @@ class Changelog
     end
   end
 
-  private
   def setup_logger
     @logger = Logger.new($stdout)
     @logger.formatter = proc do |severity, datetime, progname, msg|
@@ -41,8 +40,11 @@ class Changelog
 
   def get_tags
     tags = `git for-each-ref --sort=taggerdate --format='%(refname:strip=2)|%(taggerdate:short)' refs/tags`
-    tags = tags.split(/\n/).sort!.reverse!
-
+    tags = tags.split(/\n/).sort_by! do |ver|
+      v = ver.split('|')
+      Gem::Version.new(v.first)
+    end
+    tags = tags.reverse!
     data = []
 
     tags.each do |tag|

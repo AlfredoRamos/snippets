@@ -1,0 +1,115 @@
+#!/usr/bin/env ruby
+# encoding: UTF-8
+$stdout.sync = $stderr.sync = true
+
+require 'logger'
+
+class Changelog
+
+  VERSION = '0.1.0'
+
+  def initialize
+    # Logger
+    setup_logger
+
+    # File to write
+    @file = 'CHANGELOG.md'
+  end
+
+  def generate
+    begin
+      # Write file
+      write
+
+      # Check if file was created
+      if File.exist?(@file)
+        @logger.info('File %s created successfully' % @file)
+      end
+
+    rescue => ex
+      @logger.error(ex.message)
+    end
+  end
+
+  private
+  def setup_logger
+    @logger = Logger.new($stdout)
+    @logger.formatter = proc do |severity, datetime, progname, msg|
+      '[%1$s] %2$s :: %3$s%4$s' % [severity, datetime, msg, "\n"]
+    end
+  end
+
+  def get_tags
+    tags = `git for-each-ref --sort=taggerdate --format='%(refname:strip=2)|%(taggerdate:short)' refs/tags`
+    tags = tags.split(/\n/).sort!.reverse!
+
+    data = []
+
+    tags.each do |tag|
+      t = tag.split('|')
+      data.push({
+        :tag => t.first,
+        :date => t.last
+      })
+    end
+
+    data
+  end
+
+  def write
+    # Check if it's a git repository
+    if !Dir.exist?('.git')
+      raise 'Not a git repository'
+    end
+
+    tags = get_tags
+
+    # Create file in current directory
+    File.open(@file, 'w') do |md|
+
+      # Title
+      md.puts '## Changelog'
+
+      # Iterate each tag
+      tags.each_with_index do |data, index|
+        nextref = (index <= 0) ? {:tag => 'master', :date => nil} : tags[index - 1]
+        format = {
+          :heading => '%3$s### %1$s%2$s',
+          :item => '* [%h] %s - *%aN*'
+        }
+
+        # Write tag and date
+        md.puts format[:heading] % [
+          nextref[:tag],
+          (nextref[:date].nil? ? '' : " - #{nextref[:date]}"),
+          "\n"
+        ]
+
+        # Write tag commits
+        log = `git log --format='#{format[:item]}' #{data[:tag]}..#{nextref[:tag]}`
+        md.puts log
+
+        # Print first tag
+        if index == (tags.length - 1)
+          # Tag and date
+          md.puts format[:heading] % [
+            tags.last[:tag],
+            " - #{tags.last[:date]}",
+            "\n"
+          ]
+
+          # Tag commits
+          log = `git log --format='#{format[:item]}' #{tags.last[:tag]}`
+          md.puts log
+        end
+
+      end
+
+    end
+
+  end
+
+end
+
+# Generate changelog
+Changelog.new.generate

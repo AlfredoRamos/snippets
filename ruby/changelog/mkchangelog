@@ -6,14 +6,22 @@ require 'logger'
 
 class Changelog
 
-  VERSION = '0.1.1'
+  VERSION = '0.1.2'
 
   def initialize
     # Logger
     setup_logger
 
-    # File to write
-    @file = 'CHANGELOG.md'
+    # Config values
+    # TO-DO: Read values from file
+    @config = {
+      :format => {
+        :title => '## Changelog',
+        :heading => '%3$s### %1$s%2$s',
+        :item => '* [%h] %s - *%aN*'
+      },
+      :file => 'CHANGELOG.md'
+    }
   end
 
   def generate
@@ -22,10 +30,9 @@ class Changelog
       write
 
       # Check if file was created
-      if File.exist?(@file)
-        @logger.info('File %s created successfully' % @file)
+      if File.exist?(@config[:file])
+        @logger.info('File %s created successfully' % @config[:file])
       end
-
     rescue => ex
       @logger.error(ex.message)
     end
@@ -58,6 +65,11 @@ class Changelog
     data
   end
 
+  def get_base_url
+    url = `git remote get-url --push origin`
+    url.chomp!.chomp!('.git')
+  end
+
   def write
     # Check if it's a git repository
     if !Dir.exist?('.git')
@@ -67,42 +79,44 @@ class Changelog
     tags = get_tags
 
     # Create file in current directory
-    File.open(@file, 'w') do |md|
+    File.open(@config[:file], 'w') do |md|
 
       # Title
-      md.puts '## Changelog'
+      md.puts @config[:format][:title]
 
       # Iterate each tag
       tags.each_with_index do |data, index|
         nextref = (index <= 0) ? {:tag => 'master', :date => nil} : tags[index - 1]
-        format = {
-          :heading => '%3$s### %1$s%2$s',
-          :item => '* [%h] %s - *%aN*'
-        }
 
-        # Write tag and date
-        md.puts format[:heading] % [
-          nextref[:tag],
-          (nextref[:date].nil? ? '' : " - #{nextref[:date]}"),
-          "\n"
-        ]
+        # Git log
+        log = `git log --format='#{@config[:format][:item]}' #{data[:tag]}..#{nextref[:tag]}`
 
-        # Write tag commits
-        log = `git log --format='#{format[:item]}' #{data[:tag]}..#{nextref[:tag]}`
-        md.puts log
-
-        # Print first tag
-        if index == (tags.length - 1)
-          # Tag and date
-          md.puts format[:heading] % [
-            tags.last[:tag],
-            " - #{tags.last[:date]}",
+        # Only write to file if tag has commits to show
+        if !log.empty?
+          # Write tag and date
+          md.puts @config[:format][:heading] % [
+            nextref[:tag],
+            (nextref[:date].nil? ? '' : " - #{nextref[:date]}"),
             "\n"
           ]
 
-          # Tag commits
-          log = `git log --format='#{format[:item]}' #{tags.last[:tag]}`
+          # Write tag commits
           md.puts log
+
+          # Print first tag
+          if index == (tags.length - 1)
+            # Tag and date
+            md.puts @config[:format][:heading] % [
+              tags.last[:tag],
+              " - #{tags.last[:date]}",
+              "\n"
+            ]
+
+            # Tag commits
+            log = `git log --format='#{@config[:format][:item]}' #{tags.last[:tag]}`
+            md.puts log
+          end
+
         end
 
       end

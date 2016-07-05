@@ -6,11 +6,14 @@ require 'logger'
 
 class Changelog
 
-  VERSION = '0.1.3'
+  VERSION = '0.2.0'
 
   def initialize
-    # Logger
-    setup_logger
+    # Setup logger
+    @logger = Logger.new($stdout)
+    @logger.formatter = proc do |severity, datetime, progname, msg|
+      '[%1$s] %2$s :: %3$s%4$s' % [severity, datetime, msg, "\n"]
+    end
 
     # Config values
     # TO-DO: Read values from file
@@ -38,39 +41,51 @@ class Changelog
     end
   end
 
-  def setup_logger
-    @logger = Logger.new($stdout)
-    @logger.formatter = proc do |severity, datetime, progname, msg|
-      '[%1$s] %2$s :: %3$s%4$s' % [severity, datetime, msg, "\n"]
-    end
+  private
+  def get_base_url
+    url = `git remote get-url --push origin`
+    url.chomp!.chomp!('.git')
   end
 
   def get_tags
     tags = `git for-each-ref --sort=taggerdate --format='%(refname:strip=2)|%(taggerdate:short)' refs/tags`
     tags = tags.split(/\n/).sort_by! do |ver|
       v = ver.split('|')
-      Gem::Version.new(v.first)
+      Gem::Version.new(v.first.gsub(/^v/, ''))
     end
-    tags = tags.reverse!
+    tags.reverse!
     data = []
 
     tags.each do |tag|
       t = tag.split('|')
-      d = {
+      data.push({
         :tag => t.first,
-        :date => t.last
-      }
-      # Fix for lightweight tags
-      d[:date] = nil if d[:tag] == d[:date]
-      data.push(d)
+        # Fix for lightweight tags
+        :date => (t.last == t.first) ? nil : t.last
+      })
     end
 
     data
   end
 
-  def get_base_url
-    url = `git remote get-url --push origin`
-    url.chomp!.chomp!('.git')
+  def get_git_log(*refs)
+    refs[0] ||= nil # First commit
+    refs[1] ||= nil # Second commit
+    commits = '' # Helper
+
+    if !refs[0].nil? and !refs[1].nil?
+      # Compare tags
+      commits = '%1$s..%2$s' % [refs[0], refs[1]]
+    elsif !refs[0].nil? and refs[1].nil?
+      # Get tag commits
+      commits = refs[0]
+    else
+      # None of above
+      raise 'You need to provide at least one commit'
+    end
+
+    # Return output of the command
+    `git log --format='#{@config[:format][:item]}' #{commits}`
   end
 
   def write
@@ -92,7 +107,7 @@ class Changelog
         nextref = (index <= 0) ? {:tag => 'master', :date => nil} : tags[index - 1]
 
         # Git log
-        log = `git log --format='#{@config[:format][:item]}' #{data[:tag]}..#{nextref[:tag]}`
+        log = get_git_log(data[:tag], nextref[:tag])
 
         # Only write to file if tag has commits to show
         if !log.empty?
@@ -111,13 +126,12 @@ class Changelog
             # Tag and date
             md.puts @config[:format][:heading] % [
               tags.last[:tag],
-              " - #{tags.last[:date]}",
+              (tags.last[:date].nil? ? '' : " - #{tags.last[:date]}"),
               "\n"
             ]
 
             # Tag commits
-            log = `git log --format='#{@config[:format][:item]}' #{tags.last[:tag]}`
-            md.puts log
+            md.puts get_git_log(tags.last[:tag])
           end
 
         end

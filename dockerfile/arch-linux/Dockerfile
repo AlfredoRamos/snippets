@@ -16,4 +16,4 @@ RUN pacman-key --updatedb
 # Upgrade system
 RUN pacman -Syyu --noconfirm --noprogressbar
 RUN pacman-db-upgrade
-RUN pacman -Scc --noconfirm
+RUN yes | pacman -Scc

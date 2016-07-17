@@ -6,7 +6,7 @@ require 'logger'
 
 class Changelog
 
-  VERSION = '0.2.0'
+  VERSION = '0.2.1'
 
   def initialize
     # Setup logger
@@ -51,7 +51,7 @@ class Changelog
     tags = `git for-each-ref --sort=taggerdate --format='%(refname:strip=2)|%(taggerdate:short)' refs/tags`
     tags = tags.split(/\n/).sort_by! do |ver|
       v = ver.split('|')
-      Gem::Version.new(v.first.gsub(/^v/, ''))
+      Gem::Version.new(v[0].gsub(/^v/, ''))
     end
     tags.reverse!
     data = []
@@ -59,9 +59,8 @@ class Changelog
     tags.each do |tag|
       t = tag.split('|')
       data.push({
-        :tag => t.first,
-        # Fix for lightweight tags
-        :date => (t.last == t.first) ? nil : t.last
+        :tag => t[0],
+        :date => t[1]
       })
     end
 

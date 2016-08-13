@@ -1,11 +1,12 @@
 #!/usr/bin/env ruby
 # encoding: UTF-8
-$stdout.sync = true
+$stdout.sync = $stderr.sync = true
 
+require 'fileutils'
 require 'parseconfig'
 
 class Screenshot
-  VERSION = '0.4.0'
+  VERSION = '0.4.1'
 
   def initialize
     load_settings
@@ -14,10 +15,10 @@ class Screenshot
   def run
     args = parse_arguments
 
-    if args.has_key?('version')
+    if args.key?('version')
       # Show version
       version
-    elsif args.has_key?('help')
+    elsif args.key?('help')
       # Show help
       help
     else
@@ -59,36 +60,42 @@ class Screenshot
   def take
     parse_arguments
 
+    # Screenshot filename
+    image = File.absolute_path(File.join(
+      File.expand_path(@config['screenshot']['path']),
+      '%1$s.%2$s' % [
+        Time.now.strftime(@config['screenshot']['name']),
+        @config['screenshot']['extension']
+      ]
+    ))
+
+    # Screenshot path
     begin
-      image = File.absolute_path(File.join(
-        File.expand_path(@config['screenshot']['path']),
-        '%1$s.%2$s' % [
-          Time.now.strftime(@config['screenshot']['name']),
-          @config['screenshot']['extension']
-        ]
-      ))
-    rescue
-      abort $!.message
+      unless Dir.exist?(File.dirname(image))
+        FileUtils.mkpath(File.dirname(image))
+      end
+    rescue => error
+      abort error.message
     end
 
-    # Delay
+    # Screenshot delay
     if @config['screenshot']['delay'].to_i > 0 and @config['screenshot']['type'] == 'full'
       sleep(@config['screenshot']['delay'].to_i)
     end
 
+    # Screenshot arguments
+    args = @config['screenshot']['arguments'] % case @config['screenshot']['type']
+    when 'region'
+      image
+    else
+      '%1$s %2$s' % ['-window root', image]
+    end
+
     # Save screenshot
     begin
-      args = @config['screenshot']['arguments'] % case @config['screenshot']['type']
-      when 'region'
-        image
-      else
-        '%1$s %2$s' % ['-window root', image]
-      end
-
-      # Save screenshots
       system('%1$s %2$s' % [@config['screenshot']['application'], args])
-    rescue
-      abort $!.message
+    rescue => error
+      abort error.message
     end
 
     # Debug info
@@ -103,8 +110,9 @@ class Screenshot
   def load_settings
     file = File.absolute_path(File.join(Dir.home, '.config', 'screenshot.conf'))
 
-    if !File.exist?(file)
-      begin
+    begin
+      # Create config file
+      unless File.exist?(file)
         File.open(file, 'w') do |f|
           f.puts '[screenshot]'
           f.puts 'application="/usr/bin/gm"'
@@ -115,15 +123,12 @@ class Screenshot
           f.puts 'type="full"'
           f.puts 'delay=0'
         end
-      rescue
-        abort $!.message
       end
-    end
 
-    begin
+      # Load config file
       @config = ParseConfig.new(file)
-    rescue
-      abort $!.message
+    rescue => error
+      abort error.message
     end
 
   end

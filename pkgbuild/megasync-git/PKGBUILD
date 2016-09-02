@@ -14,8 +14,8 @@ depends=(
 	'libsodium' 'libuv' 'hicolor-icon-theme'
 )
 makedepends=('git' 'qt5-tools')
-provides=("${_pkgbase}=${pkgver}")
-conflicts=("${_pkgbase}" "${_pkgbase}-qt5")
+provides=("${_pkgname}=${pkgver}")
+conflicts=("${_pkgname}" "${_pkgname}-qt5")
 
 source=(
 	'git+https://github.com/meganz/MEGAsync.git'

@@ -1,0 +1,102 @@
+# Maintainer: Alfredo Ramos <alfredo dot ramos at yandex dot com>
+
+_pkgname=megasync
+pkgname=${_pkgname}-git
+pkgver=2.9.8.0.0.g4977c8e
+pkgrel=1
+pkgdesc='Easy automated syncing between your computers and your MEGA cloud drive. Development version'
+arch=('i686' 'x86_64')
+license=('custom:MEGA LIMITED CODE REVIEW LICENCE')
+url='https://mega.nz/'
+
+depends=(
+	'qt5-base' 'c-ares' 'crypto++' 'curl'
+	'libsodium' 'libuv' 'hicolor-icon-theme'
+)
+makedepends=('git' 'qt5-tools')
+provides=("${_pkgbase}=${pkgver}")
+conflicts=("${_pkgbase}" "${_pkgbase}-qt5")
+
+source=(
+	'git+https://github.com/meganz/MEGAsync.git'
+	'git+https://github.com/meganz/sdk.git'
+)
+sha512sums=(
+	'SKIP'
+	'SKIP'
+)
+
+pkgver() {
+	# Update package version
+	cd "${srcdir}"/MEGAsync
+	git describe --long --tags --match '*Linux' | sed -r 's/^v//;s/_Linux//;s/_/./g;s/-/./g'
+}
+
+prepare() {
+	cd "${srcdir}"/MEGAsync
+
+	# Config submodules
+	git config submodule.src/MEGASync/mega.url "${srcdir}"/sdk
+	git submodule update --init
+
+	# Build directory
+	mkdir -p "${srcdir}"/build
+	cp -a "${srcdir}"/MEGAsync/* "${srcdir}"/build
+}
+
+build() {
+	# Configure MEGA SDK
+	cd "${srcdir}"/build/src/MEGASync/mega
+	./clean.sh
+	./autogen.sh
+	./configure \
+		--prefix=/usr \
+		--enable-gcc-hardening \
+		--with-cares \
+		--with-curl \
+		--with-cryptopp \
+		--with-sodium \
+		--with-sqlite \
+		--with-zlib \
+		--disable-examples \
+		--disable-megaapi \
+		--disable-silent-rules \
+		--without-freeimage \
+		--without-readline \
+		--without-termcap
+
+	# Generate Makefile
+	cd "${srcdir}"/build
+	qmake-qt5 src \
+		QMAKE_CFLAGS="${CFLAGS}" \
+		QMAKE_CXXFLAGS="${CXXFLAGS}" \
+		CONFIG+=release \
+		CONFIG+=c++14
+
+	# Generate translations
+	lrelease-qt5 \
+		-compress \
+		-nounfinished \
+		-removeidentical \
+		src/MEGASync/MEGASync.pro
+
+	# Build package
+	make
+}
+
+package() {
+	# Install package
+	cd "${srcdir}"/build
+	make INSTALL_ROOT="${pkgdir}" install
+
+	# Install executable
+	mkdir -p "${pkgdir}"/usr/bin
+	cp MEGASync/megasync "${pkgdir}"/usr/bin
+
+	# Install license
+	mkdir -p "${pkgdir}"/usr/share/licenses/${pkgname}
+	cp LICENCE.md "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE.md
+
+	# Remove empty files
+	rm -R "${pkgdir}"/usr/share/doc
+}

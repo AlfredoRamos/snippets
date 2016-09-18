@@ -8,12 +8,12 @@
 
 pkgbase=vim
 pkgname=('vim-git' 'vim-runtime-git')
-pkgver=7.4.1944.0.gb5b9575
+pkgver=8.0.0005.0.g3c4ebeb
 pkgrel=1
 arch=('i686' 'x86_64')
 license=('custom:vim')
 url='http://www.vim.org'
-makedepends=('gpm' 'python2' 'python' 'ruby' 'libxt' 'lua' 'gawk' 'tcl' 'tcsh')
+makedepends=('gpm' 'python2' 'python' 'ruby' 'libxt' 'lua' 'gawk' 'tcl')
 source=(
 	'git+http://github.com/vim/vim.git'
 	'vimrc'
@@ -21,7 +21,7 @@ source=(
 )
 sha512sums=(
 	'SKIP'
-	'c76e71bc3e9aaf3899ed3d7d4c0a9456da61c7f056ce0826b281fefea309f158186185f0356ff9b8aab6925465b3f24bebfd9272fda0e2d55e96061f68ff8bad'
+	'4b5bed0813f22af9e158ea9aa56a4a9862dd786ba2d201f20159ccf652da6190164aaed0b6b7217d578f7b25c33a8adcc307bfcf3caa8d173a7ff29e2a00fee7'
 	'935c15a4cc55b9209e6b6c974df765cc6683ae32ccea38acadc825bbc9c60b97ebe14aec8814b7e52080c0d0ded520a68ff1880ab64f320b08c181b6bf862edb'
 )
 
@@ -70,9 +70,14 @@ build() {
 	make
 }
 
+check() {
+	cd "${srcdir}"/build
+	# TERM=xterm make -j1 test
+}
+
 package_vim-git() {
 	pkgdesc='Vi Improved, a highly configurable, improved version of the vi text editor. Development version.'
-	depends=("vim-runtime=${pkgver}-${pkgrel}" 'gpm' 'acl' 'libxt')
+	depends=("vim-runtime=${pkgver}-${pkgrel}" 'gpm' 'acl')
 	optdepends=(
 		'python2: Python 2 language support'
 		'python: Python 3 language support'
@@ -93,23 +98,25 @@ package_vim-git() {
 
 	# delete some manpages
 	find "${pkgdir}"/usr/share/man -type d -name 'man1' 2>/dev/null | \
-		while read _mandir; do
-			cd ${_mandir}
-			rm -f ex.1 view.1 # provided by (n)vi
-			rm -f evim.1    # this does not make sense if we have no GUI
-		done
+	while read _mandir; do
+		cd ${_mandir}
+		rm -f ex.1 view.1 # provided by (n)vi
+		rm -f evim.1    # this does not make sense if we have no GUI
+	done
 
-		# Runtime provided by runtime package
-		rm -r "${pkgdir}"/usr/share/vim
+	# Runtime provided by runtime package
+	rm -r "${pkgdir}"/usr/share/vim
 
-		# license
-		install -Dm644 runtime/doc/uganda.txt \
-			"${pkgdir}"/usr/share/licenses/${pkgname}/license.txt
+	# no desktop files and icons
+	rm -r "${pkgdir}"/usr/share/{applications,icons}
+
+	# license
+	install -Dm644 runtime/doc/uganda.txt \
+		"${pkgdir}"/usr/share/licenses/${pkgname}/license.txt
 }
 
 package_vim-runtime-git() {
 	pkgdesc='Runtime for vim and gvim. Development version.'
-	depends=('python' 'sh' 'gawk' 'tcsh')
 	conflicts=('vim-runtime')
 	provides=("vim-runtime=${pkgver}-${pkgrel}")
 	backup=('etc/vimrc')
@@ -143,6 +150,9 @@ package_vim-runtime-git() {
 	# rgb.txt file
 	install -Dm644 runtime/rgb.txt \
 		"${pkgdir}"/usr/share/vim/vim${versiondir}/rgb.txt
+
+	# no desktop files and icons
+	rm -r "${pkgdir}"/usr/share/{applications,icons}
 
 	# license
 	install -dm755 "${pkgdir}"/usr/share/licenses/vim-runtime

@@ -1,6 +1,6 @@
 /**
- * Services for auto-embed videos script
- * https://github.com/AlfredoRamos/snippets/tree/master/javascript/auto-embed-videos
+ * Services for auto-embed video script
+ * https://github.com/AlfredoRamos/snippets/tree/master/javascript/auto-embed-video
  * @author Alfredo Ramos <alfredo.ramos@yandex.com>
  * @version 0.1.0
  * @copyright (c) 2016 Alfredo Ramos

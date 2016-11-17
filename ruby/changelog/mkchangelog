@@ -6,49 +6,113 @@ require 'logger'
 
 class Changelog
 
-  VERSION = '0.2.1'
+  VERSION = '0.3.0'
 
   def initialize
     # Setup logger
     @logger = Logger.new($stdout)
     @logger.formatter = proc do |severity, datetime, progname, msg|
-      '[%1$s] %2$s :: %3$s%4$s' % [severity, datetime, msg, "\n"]
+      "[#{severity}] #{datetime} | #{msg}\n"
+    end
+  end
+
+  def generate(args = {})
+    # Check if it's a git repository
+    unless Dir.exist?('.git')
+      @logger.fatal('Not a git repository')
+      abort
     end
 
-    # Config values
-    # TO-DO: Read values from file
-    @config = {
-      :format => {
-        :title => '## Changelog',
-        :heading => '%3$s### %1$s%2$s',
-        :item => '* [%h] %s - *%aN*'
-      },
+    # Default values
+    defaults = {
+      :title => '## Changelog',
+      :heading => "\n### %1$s%2$s",
+      :item => '* [%1$s] %2$s - *%3$s*',
       :file => 'CHANGELOG.md'
     }
-  end
 
-  def generate
-    begin
-      # Write file
-      write
+    # Merge default values
+    args = defaults.merge(args)
 
-      # Check if file was created
-      if File.exist?(@config[:file])
-        @logger.info('File %s created successfully' % @config[:file])
+    # Tag list
+    tags = get_tags
+
+    # Git log
+    commits = []
+
+    # Create file in current directory
+    File.open(args[:file], 'w') do |md|
+      # Title
+      md.puts args[:title]
+
+      # Write master branch commits if there's no tags
+      unless tags.length > 0
+        # Branch
+        md.puts args[:heading] % [
+          'master',
+          nil
+        ]
+
+        # Commits
+        get_commits({
+          :ref1 => 'master'
+        }).each do |commit|
+          md.puts args[:item] % [
+            commit[:hash],
+            commit[:message],
+            commit[:author]
+          ]
+        end
       end
-    rescue => ex
-      @logger.error(ex.message)
-    end
-  end
 
-  private
-  def get_base_url
-    url = `git remote get-url --push origin`
-    url.chomp!.chomp!('.git')
+      # Write each tag and its commits
+      tags.each_index do |index|
+        nextref = (index <= 0) ? {:tag => 'master', :date => nil} : tags[index - 1]
+
+        # Tag and date
+        md.puts args[:heading] % [
+          nextref[:tag],
+          (nextref[:date].nil? ? '' : " - #{nextref[:date]}"),
+        ]
+
+        # Commits
+        get_commits({
+          :ref1 => tags[index][:tag],
+          :ref2 => nextref[:tag]
+        }).each do |commit|
+          md.puts args[:item] % [
+            commit[:hash],
+            commit[:message],
+            commit[:author]
+          ]
+        end
+
+        # Print first tag
+        if index == (tags.length - 1)
+          # Tag and date
+          md.puts args[:heading] % [
+            tags[index][:tag],
+            (tags[index][:date].nil? ? tags[index][:date] : " - #{tags[index][:date]}"),
+          ]
+
+          # Commits
+          get_commits({
+            :ref1 => tags[index][:tag]
+          }).each do |commit|
+            md.puts args[:item] % [
+              commit[:hash],
+              commit[:message],
+              commit[:author]
+            ]
+          end
+        end
+      end
+    end
   end
 
   def get_tags
-    tags = `git for-each-ref --sort=taggerdate --format='%(refname:strip=2)|%(taggerdate:short)' refs/tags`
+    format = '%(refname:strip=2)|%(taggerdate:short)'
+    tags = `git for-each-ref --sort=taggerdate --format='#{format}' refs/tags`
     tags = tags.split(/\n/).sort_by! do |ver|
       v = ver.split('|')
       Gem::Version.new(v[0].gsub(/^v/, ''))
@@ -67,78 +131,39 @@ class Changelog
     data
   end
 
-  def get_git_log(*refs)
-    refs[0] ||= nil # First commit
-    refs[1] ||= nil # Second commit
-    commits = '' # Helper
+  def get_commits(args = {})
+    args[:ref1] ||= nil # First commit
+    args[:ref2] ||= nil # Second commit
+    format = '%h|%s|%aN' # Hash|Message|Author
+    diff = '' # Helper
 
-    if !refs[0].nil? and !refs[1].nil?
+    if not args[:ref1].nil? and not args[:ref2].nil?
       # Compare tags
-      commits = '%1$s..%2$s' % [refs[0], refs[1]]
-    elsif !refs[0].nil? and refs[1].nil?
+      diff = '%1$s..%2$s' % [args[:ref1], args[:ref2]]
+    elsif not args[:ref1].nil? and args[:ref2].nil?
       # Get tag commits
-      commits = refs[0]
+      diff = args[:ref1]
     else
       # None of above
-      raise 'You need to provide at least one commit'
+      @logger.fatal('You need to provide at least one commit')
+      abort
     end
 
-    # Return output of the command
-    `git log --format='#{@config[:format][:item]}' #{commits}`
-  end
-
-  def write
-    # Check if it's a git repository
-    if !Dir.exist?('.git')
-      raise 'Not a git repository'
+    # Return hash of data
+    commits = []
+    log = `git log --format='#{format}' #{diff}`
+    log = log.split(/\n/)
+    log.each do |item|
+      i = item.split('|')
+      commits.push({
+        :hash => i[0],
+        :message => i[1],
+        :author => i[2]
+      })
     end
 
-    tags = get_tags
-
-    # Create file in current directory
-    File.open(@config[:file], 'w') do |md|
-
-      # Title
-      md.puts @config[:format][:title]
-
-      # Iterate each tag
-      tags.each_with_index do |data, index|
-        nextref = (index <= 0) ? {:tag => 'master', :date => nil} : tags[index - 1]
-
-        # Git log
-        log = get_git_log(data[:tag], nextref[:tag])
-
-        # Only write to file if tag has commits to show
-        if !log.empty?
-          # Write tag and date
-          md.puts @config[:format][:heading] % [
-            nextref[:tag],
-            (nextref[:date].nil? ? '' : " - #{nextref[:date]}"),
-            "\n"
-          ]
-
-          # Write tag commits
-          md.puts log
-
-          # Print first tag
-          if index == (tags.length - 1)
-            # Tag and date
-            md.puts @config[:format][:heading] % [
-              tags.last[:tag],
-              (tags.last[:date].nil? ? '' : " - #{tags.last[:date]}"),
-              "\n"
-            ]
-
-            # Tag commits
-            md.puts get_git_log(tags.last[:tag])
-          end
-
-        end
-
-      end
-
-    end
-
+    # Return commits array
+    commits
   end
 
 end

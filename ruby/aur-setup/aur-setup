@@ -2,16 +2,11 @@
 # encoding: UTF-8
 $stdout.sync = $stderr.sync = true
 
-#
-# $HOME/.local/bin/aur-setup
-# https://github.com/AlfredoRamos/snippets/tree/master/ruby/aur-setup
-#
-
 require 'parseconfig'
 require 'logger'
 
 class AurSetUp
-  VERSION = '0.3.1'
+  VERSION = '0.3.2'
 
   def initialize
     setup_logger
@@ -34,7 +29,10 @@ class AurSetUp
   end
 
   def version
-    puts '%1$s %2$s' % [File.basename(__FILE__), VERSION]
+    puts '%1$s %2$s' % [
+      File.basename(__FILE__),
+      VERSION
+    ]
     exit
   end
 
@@ -64,8 +62,14 @@ class AurSetUp
           Dir.chdir(repo)
 
           # Git config
-          system('git config --local --replace-all user.name "%s"' % @config['git']['name'])
-          system('git config --local --replace-all user.email "%s"' % @config['git']['email'])
+          system(
+            'git config --local --replace-all user.name "%s"' %
+            @config['git']['name']
+          )
+          system(
+            'git config --local --replace-all user.email "%s"' %
+            @config['git']['email']
+          )
         end
 
         puts ' -> %s... done' % File.basename(repo)
@@ -105,7 +109,10 @@ class AurSetUp
         end
 
         # Show message
-        puts ' -> %1$s... %2$s' % [File.basename(repo), (!hooks.empty? ? 'done' : 'fail')]
+        puts ' -> %1$s... %2$s' % [
+          File.basename(repo),
+          (!hooks.empty? ? 'done' : 'fail')
+        ]
       end
     rescue => error
       @logger.error(error.message)
@@ -114,14 +121,10 @@ class AurSetUp
 
   private
   def setup_logger
-    begin
-      @logger = Logger.new($stdout)
-      @logger.datetime_format = '%Y-%m-%d %H:%M:%S %:z'
-      @logger.formatter = proc do |severity, datetime, progname, msg|
-        '[%1$s] %2$s :: %3$s%4$s' % [severity, datetime, msg, "\n"]
-      end
-    rescue => error
-      abort error.message
+    @logger = Logger.new($stdout)
+    @logger.datetime_format = '%F %T %:z'
+    @logger.formatter = proc do |severity, datetime, progname, msg|
+      "[#{severity}] #{datetime} | #{msg}\n"
     end
   end
 
@@ -131,7 +134,7 @@ class AurSetUp
 
       # Create config file if not exist
       if !File.exist?(file)
-        @logger.warn('Config file does not exist' % file)
+        @logger.warn('Config file does not exist')
 
         File.open(file, 'w') do |file|
           file.puts '[aur]'
@@ -158,7 +161,10 @@ class AurSetUp
   end
 
   def copyright
-    puts '%1$s %2$s - A simple AUR setup helper' % [File.basename(__FILE__), VERSION]
+    puts '%1$s %2$s - A simple AUR setup helper' % [
+      File.basename(__FILE__),
+      VERSION
+    ]
     puts
     puts 'Copyright (C) 2015 Alfredo Ramos'
     puts
@@ -181,13 +187,16 @@ class AurSetUp
 
       repos.map! do |repo|
         # Get absolute path
-        repo = File.absolute_path(File.join(File.expand_path(@config['aur']['root']), repo))
+        repo = File.absolute_path(File.join(
+          File.expand_path(@config['aur']['root']),
+          repo
+        ))
       end
     rescue => error
       @logger.error(error.message)
     end
 
-    return repos
+    repos
   end
 
   def git_hooks
@@ -200,7 +209,10 @@ class AurSetUp
 
       # Do not include files that are not hooks
       hooks.delete_if do |hook|
-        !hook.include?('.hook') or !File.file?(File.join(File.expand_path(@config['aur']['hooks']), hook))
+        !hook.include?('.hook') or !File.file?(File.join(
+          File.expand_path(@config['aur']['hooks']),
+          hook
+        ))
       end
 
       if hooks.empty?
@@ -210,9 +222,10 @@ class AurSetUp
       @logger.error(error.message)
     end
 
-    return hooks
+    hooks
   end
 
 end
 
+# Run application
 AurSetUp.new.run

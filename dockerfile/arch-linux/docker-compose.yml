@@ -1,0 +1,9 @@
+version: '2'
+services:
+  worker:
+    build:
+      context: .
+      args:
+        user: app
+    image: alfredo-ramos/arch-linux
+    command: [uname, -r]

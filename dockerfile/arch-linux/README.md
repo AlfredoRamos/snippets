@@ -4,7 +4,7 @@ A minimal Arch Linux Docker image
 
 ### Dependencies
 
-- Docker engine [[info](https://docs.docker.com/linux/)]
+- Docker Compose [[info](https://docs.docker.com/compose/install/)]
 
 ### Usage
 
@@ -13,11 +13,11 @@ Note: `docker.service` must be already running [[wiki](https://wiki.archlinux.or
 **Build**
 
 ```
-# docker build --force-rm -t arch-linux .
+# docker-compose up --build --remove-orphans
 ```
 
 **Run** (on your terminal)
 
 ```
-# docker run -it --rm arch-linux /bin/bash
+# docker run -it --rm alfredo-ramos/arch-linux /bin/bash
 ```

@@ -1,27 +1,19 @@
 #!/bin/bash --
 
-#
 # A simple script to backup my databases using cronie
 # https://github.com/AlfredoRamos/snippets/tree/master/bash/mysql-dump
-#
 
-# MySQL config
-MYSQL_HOST=''
-MYSQL_PORT=3306
-MYSQL_DATABASES=()
-MYSQL_USER=''
-MYSQL_PASSWORD=''
-
-# Backup config
-BASE_DIR="$(pwd)"
-BACKUP_DIR="${BASE_DIR}"/backup
+# Configuration
+args=("$@")
+declare -A mysql
+declare -A backup
 
 # Generate filename
 # ${1}	Database/file name
 # ${2}	Timestamp format
 # ${3}	Prefix string
 # ${4}	Suffix string
-get_filename() {
+gen_filename() {
 	local filename="${1}"
 	local timestamp="${2}"
 	local prefix="${3}"
@@ -45,61 +37,136 @@ get_filename() {
 	printf "$(date +"${timestamp}") ${name}" | sed -r 's/[-+:]//g;s/ /_/g'
 }
 
-# Create writable backup directory
-if [[ "${#MYSQL_DATABASES[@]}" -gt 0 ]]; then
-	if [[ ! -d "${BACKUP_DIR}" ]]; then
-		mkdir -m 755 -p "${BACKUP_DIR}"
+parse_args() {
+	# Default values
+	mysql[host]='localhost'
+	mysql[port]=3306
+	mysql[databases]=''
+	mysql[user]=''
+	mysql[password]=''
+
+	# Directories
+	backup[root]="$(pwd)"
+	backup[path]="${backup[root]}"/backup
+
+	# Parse arguments
+	for arg in "${args[@]}"; do
+		case "${arg}" in
+			--mysql-host=*)
+				if [[ ! -z "${arg#*=}" ]]; then
+					mysql[host]="${arg#*=}"
+				fi
+				;;
+			--mysql-port=*)
+				if [[ ! -z "${arg#*=}" ]]; then
+					mysql[port]="${arg#*=}"
+				fi
+				;;
+			--mysql-databases=*)
+				if [[ ! -z "${arg#*=}" ]]; then
+					mysql[databases]="${arg#*=}"
+				fi
+				;;
+			--mysql-user=*)
+				if [[ ! -z "${arg#*=}" ]]; then
+					mysql[user]="${arg#*=}"
+				fi
+				;;
+			--mysql-password=*)
+				if [[ ! -z "${arg#*=}" ]]; then
+					mysql[password]="${arg#*=}"
+				fi
+				;;
+			--backup-path=*)
+				if [[ ! -z "${arg#*=}" ]]; then
+					backup[path]="${arg#*=}"
+				fi
+				;;
+			*)
+		esac
+	done
+}
+
+create_backups() {
+	# Convert databases string to array
+	if [[ ! -z "${mysql[databases]}" ]]; then
+		readarray -t databases <<< "$(printf "${mysql[databases]}" | tr ',' "\n")"
 	else
-		chmod 755 "${BACKUP_DIR}"
+		databases=()
 	fi
 
-	# Change current working directory
-	cd "${BACKUP_DIR}"
-fi
+	# Create backup paths
+	if [[ "${#databases[@]}" -gt 0 ]]; then
+		mkdir -m 755 -p "${backup[path]}"
 
-# Backup database schema
-for database in "${MYSQL_DATABASES[@]}"; do
-	mysqldump \
-		--log-error="$(get_filename 'schema' '%F').log" \
-		--host="${MYSQL_HOST}" \
-		--port=${MYSQL_PORT} \
-		--user="${MYSQL_USER}" \
-		--password="${MYSQL_PASSWORD}" \
-		--result-file="$(get_filename ${database} '' 'schema').sql" \
-		--databases "${database}" \
-		--no-data
-done
-
-# Backup database data
-for database in "${MYSQL_DATABASES[@]}"; do
-	mysqldump \
-		--log-error="$(get_filename 'data' '%F').log" \
-		--host="${MYSQL_HOST}" \
-		--port=${MYSQL_PORT} \
-		--user="${MYSQL_USER}" \
-		--password="${MYSQL_PASSWORD}" \
-		--result-file="$(get_filename ${database} '' 'data').sql" \
-		--databases "${database}" \
-		--single-transaction \
-		--quick \
-		--add-drop-table \
-		--replace \
-		--no-create-db \
-		--no-create-info
-done
-
-# Compress backup
-if [[ $(find . -maxdepth 1 -type f -name '*.sql' | wc -l) -gt 0 ]]; then
-	name="$(get_filename 'backup')"
-
-	# SHA512
-	sha512sum *.sql > "$(get_filename 'sha512sums').txt"
-
-	# XZ
-	tar cJf "${name}.tar.xz" *.sql *.txt
-
-	# Delete unneeded files
-	if [[ -f "${name}.tar.xz" ]]; then
-		rm -f *.sql *.txt
+		# Change working directory
+		cd "${backup[path]}"
 	fi
-fi
+
+	# Create backups
+	for database in "${databases[@]}"; do
+		# Schema backup
+		mysqldump \
+			--log-error="$(gen_filename 'schema' '%F').log" \
+			--host="${mysql[host]}" \
+			--port=${mysql[port]} \
+			--user="${mysql[user]}" \
+			--password="${mysql[password]}" \
+			--result-file="$(gen_filename ${database} '' 'schema').sql" \
+			--databases "${database}" \
+			--no-data
+
+		# Data backup
+		mysqldump \
+			--log-error="$(gen_filename 'data' '%F').log" \
+			--host="${mysql[host]}" \
+			--port=${mysql[port]} \
+			--user="${mysql[user]}" \
+			--password="${mysql[password]}" \
+			--result-file="$(gen_filename ${database} '' 'data').sql" \
+			--databases "${database}" \
+			--single-transaction \
+			--quick \
+			--add-drop-table \
+			--replace \
+			--no-create-db \
+			--no-create-info
+	done
+}
+
+# ${1}	string	Directories to compress
+compress_backups() {
+	# Change working directory
+	if [[ -f "${backup[path]}" ]]; then
+		cd "${backup[path]}"
+	fi
+
+	if [[ $(find . -maxdepth 1 -type f -name '*.sql' | wc -l) -gt 0 ]]; then
+		local tar_file="$(gen_filename 'backup').tar.xz"
+
+		# SHA512
+		sha512sum *.sql > "$(gen_filename 'checksums').sha512"
+
+		# XZ
+		tar cJf "${tar_file}" *.sql *.sha512
+
+		# Delete unneeded files
+		if [[ -f "${tar_file}" ]]; then
+			rm -f *.sql *.sha512
+		fi
+	fi
+}
+
+main() {
+	# Read arguments
+	parse_args
+
+	# Create *.sql files
+	create_backups
+
+	# Compress generated files
+	compress_backups
+}
+
+# Call main function
+main

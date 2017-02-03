@@ -2,7 +2,7 @@
 
 A script to auto-embed videos using the *lazy loading* technique
 
-A live demo is located at [`auto-embed-video`](https://alfredoramos.github.io/auto-embed-video/)
+A live demo is located at [Auto Embed Video](https://alfredoramos.github.io/development/2017/02/02/auto-embed-video.html)
 
 ### Dependencies
 

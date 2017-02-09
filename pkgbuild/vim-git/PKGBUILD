@@ -8,14 +8,14 @@
 
 pkgbase=vim
 pkgname=('vim-git' 'vim-runtime-git')
-pkgver=8.0.0005.0.g3c4ebeb
+pkgver=8.0.0314.0.g65189a129
 pkgrel=1
 arch=('i686' 'x86_64')
 license=('custom:vim')
 url='http://www.vim.org'
 makedepends=('gpm' 'python2' 'python' 'ruby' 'libxt' 'lua' 'gawk' 'tcl')
 source=(
-	'git+http://github.com/vim/vim.git'
+	'git+https://github.com/vim/vim.git'
 	'vimrc'
 	'archlinux.vim'
 )

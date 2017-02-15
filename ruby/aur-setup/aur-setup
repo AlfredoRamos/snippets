@@ -6,11 +6,54 @@ require 'parseconfig'
 require 'logger'
 
 class AurSetUp
-  VERSION = '0.3.2'
+  VERSION = '0.4.0'
 
   def initialize
-    setup_logger
-    load_settings
+    # Setup logger
+    @logger = Logger.new($stdout)
+    @logger.datetime_format = '%F %T %:z'
+    @logger.formatter = proc do |severity, datetime, progname, msg|
+      "[#{severity}] #{datetime} | #{msg}\n"
+    end
+
+    # Configuration file
+    file = File.absolute_path(File.join(Dir.home, '.config', 'aur-setup.conf'))
+
+    # Create an empty configuration file if it doesn't exist
+    unless File.exist?(file)
+      @logger.warn('Configuration file does not exist')
+
+      File.open(file, 'w') do |file|
+        file.puts '[aur]'
+        file.puts 'root_path='
+        file.puts 'hooks_path='
+        file.puts
+        file.puts '[git]'
+        file.puts 'name='
+        file.puts 'email='
+      end
+
+      @logger.info('Config file created at %s' % file)
+    end
+
+    # Load settings from file
+    begin
+      @config = ParseConfig.new(file)
+    rescue => error
+      @logger.fatal('Could not load settings from file')
+      abort
+    end
+
+    # Check for errors
+    case
+    when (@config['aur']['root_path'].empty? or @config['aur']['hooks_path'].empty?)
+      @logger.fatal('You need to set the AUR root and hooks path')
+      abort
+    when (@config['git']['name'].empty? or @config['git']['email'].empty?)
+      @logger.fatal('You need to set the git user name and email')
+      abort
+    end
+
   end
 
   def run
@@ -23,9 +66,54 @@ class AurSetUp
       # Show help
       help
     else
-      setup_git_config
-      setup_git_hooks
+      # Add git configuration and hooks
+      setup_aur_packages
     end
+  end
+
+  def parse_arguments
+    return ARGV.join(' ').scan(/--?([^=\s]+)(?:=(\S+))?/).to_h
+  end
+
+  def copyright
+    puts '%1$s %2$s - A simple AUR setup helper' % [
+      File.basename(__FILE__),
+      VERSION
+    ]
+    puts
+    puts 'Copyright (C) 2015 Alfredo Ramos'
+    puts
+    puts 'This is free software; see the source for copying conditions. There is NO'
+    puts 'WARRANTY; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.'
+    puts 'See the GNU General Public License version 3 for more details.'
+  end
+
+  def git_repositories
+    repositories = Dir.entries(File.expand_path(@config['aur']['root_path'])) - ['.', '..']
+
+    repositories.map! do |repository|
+      # Get absolute path
+      repository = File.absolute_path(File.join(
+        File.expand_path(@config['aur']['root_path']),
+        repository
+      ))
+    end
+
+    repositories
+  end
+
+  def git_hooks
+    hooks = Dir.entries(File.expand_path(@config['aur']['hooks_path'])) - ['.', '..']
+
+    # Do not include files that are not hooks
+    hooks.delete_if do |hook|
+      not hook.include?('.hook') or not File.file?(File.join(
+        File.expand_path(@config['aur']['hooks_path']),
+        hook
+      ))
+    end
+
+    hooks
   end
 
   def version
@@ -49,180 +137,54 @@ class AurSetUp
     puts '    Display this information.'
   end
 
-  def setup_git_config
-    begin
-      if @config['git']['name'].empty? or @config['git']['email'].empty?
-        raise 'You need to set the git user name and email'
-      end
-
-      puts ':: Setting up repositories'
-
-      git_repositories.each do |repo|
-        if Dir.exist?(repo)
-          Dir.chdir(repo)
-
-          # Git config
-          system(
-            'git config --local --replace-all user.name "%s"' %
-            @config['git']['name']
-          )
-          system(
-            'git config --local --replace-all user.email "%s"' %
-            @config['git']['email']
-          )
-        end
-
-        puts ' -> %s... done' % File.basename(repo)
-      end
-
-      Dir.chdir(File.expand_path(@config['aur']['root']))
-    rescue => error
-      @logger.error(error.message)
+  def setup_aur_packages
+    git_repositories.each do |package|
+      setup_git_config(package)
+      setup_git_hooks(package)
     end
   end
 
-  def setup_git_hooks
-    begin
-      if @config['aur']['root'].empty? or @config['aur']['hooks'].empty?
-        raise 'You need to set the AUR root and hooks root path'
-      end
+  def setup_git_config(package)
+    if Dir.exist?(package)
+      # Change to package directory
+      Dir.chdir(package)
 
-      puts ':: Setting up git hooks'
+      format = 'git config --local --replace-all user.%1$s "%2$s"'
 
-      git_repositories.each do |repo|
-        git_hooks.each do |hook|
-          file = File.join(File.expand_path(@config['aur']['hooks']), hook)
-          target = File.join(repo, '.git', 'hooks', hook).chomp('.hook')
+      # Git config
+      system(format % ['name', @config['git']['name']])
+      system(format % ['email', @config['git']['email']])
 
-          # Create symbolic link
-          if File.exist?(file) and !File.symlink?(target)
-            File.symlink(file, target)
-          end
-        end
-
-        # Get installed hooks
-        hooks = Dir.entries(File.join(repo, '.git', 'hooks')) - ['.', '..']
-
-        # Delete sample hooks
-        hooks.delete_if do |hook|
-          hook.include?('.sample')
-        end
-
-        # Show message
-        puts ' -> %1$s... %2$s' % [
-          File.basename(repo),
-          (!hooks.empty? ? 'done' : 'fail')
-        ]
-      end
-    rescue => error
-      @logger.error(error.message)
-    end
-  end
-
-  private
-  def setup_logger
-    @logger = Logger.new($stdout)
-    @logger.datetime_format = '%F %T %:z'
-    @logger.formatter = proc do |severity, datetime, progname, msg|
-      "[#{severity}] #{datetime} | #{msg}\n"
-    end
-  end
-
-  def load_settings
-    begin
-      file = File.absolute_path(File.join(Dir.home, '.config', 'aur-setup.conf'))
-
-      # Create config file if not exist
-      if !File.exist?(file)
-        @logger.warn('Config file does not exist')
-
-        File.open(file, 'w') do |file|
-          file.puts '[aur]'
-          file.puts 'root=""'
-          file.puts 'hooks=""'
-          file.puts
-          file.puts '[git]'
-          file.puts 'name=""'
-          file.puts 'email=""'
-        end
-
-        @logger.info('Config file created at %s' % file)
-      end
-
-      # Parse config file
-      @config = ParseConfig.new(file)
-    rescue => error
-      @logger.error(error.message)
-    end
-  end
-
-  def parse_arguments
-    return ARGV.join(' ').scan(/--?([^=\s]+)(?:=(\S+))?/).to_h
-  end
-
-  def copyright
-    puts '%1$s %2$s - A simple AUR setup helper' % [
-      File.basename(__FILE__),
-      VERSION
-    ]
-    puts
-    puts 'Copyright (C) 2015 Alfredo Ramos'
-    puts
-    puts 'This is free software; see the source for copying conditions. There is NO'
-    puts 'WARRANTY; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.'
-    puts 'See the GNU General Public License version 3 for more details.'
-  end
-
-  def git_repositories
-    begin
-      if @config['aur']['root'].empty?
-        raise 'You need to set the AUR root path'
-      end
-
-      repos = Dir.entries(File.expand_path(@config['aur']['root'])) - ['.', '..']
-
-      if repos.empty?
-        raise 'No repositories found'
-      end
-
-      repos.map! do |repo|
-        # Get absolute path
-        repo = File.absolute_path(File.join(
-          File.expand_path(@config['aur']['root']),
-          repo
-        ))
-      end
-    rescue => error
-      @logger.error(error.message)
+      @logger.info('%s git configuration [OK]' % File.basename(package))
     end
 
-    repos
+    # Return to the AUR root path
+    Dir.chdir(File.expand_path(@config['aur']['root_path']))
   end
 
-  def git_hooks
-    begin
-      if @config['aur']['hooks'].empty?
-        raise 'You need to set the git hooks root path'
-      end
+  def setup_git_hooks(package)
+    git_hooks.each do |hook|
+      file = File.join(File.expand_path(@config['aur']['hooks_path']), hook)
+      target = File.join(package, '.git', 'hooks', hook).chomp('.hook')
 
-      hooks = Dir.entries(File.expand_path(@config['aur']['hooks'])) - ['.', '..']
-
-      # Do not include files that are not hooks
-      hooks.delete_if do |hook|
-        !hook.include?('.hook') or !File.file?(File.join(
-          File.expand_path(@config['aur']['hooks']),
-          hook
-        ))
+      # Create symbolic link
+      if File.exist?(file) and not File.symlink?(target)
+        File.symlink(file, target)
       end
-
-      if hooks.empty?
-        raise 'No hooks found'
-      end
-    rescue => error
-      @logger.error(error.message)
     end
 
-    hooks
+    # Get installed hooks
+    hooks = Dir.entries(File.join(package, '.git', 'hooks')) - ['.', '..']
+
+    # Do not include sample hooks
+    hooks.delete_if do |hook|
+      hook.include?('.sample')
+    end
+
+    @logger.info('%1$s git hooks [%2$s]' % [
+      File.basename(package),
+      (hooks.empty? ? 'FAIL' : 'OK')
+    ])
   end
 
 end

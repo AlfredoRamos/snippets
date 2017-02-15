@@ -40,7 +40,7 @@ class AurSetUp
     begin
       @config = ParseConfig.new(file)
     rescue => error
-      @logger.fatal('Could not load settings from file')
+      @logger.fatal(error.message)
       abort
     end
 

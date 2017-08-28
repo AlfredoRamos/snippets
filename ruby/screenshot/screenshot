@@ -1,12 +1,16 @@
 #!/usr/bin/env ruby
 # encoding: UTF-8
+
 $stdout.sync = $stderr.sync = true
 
 require 'fileutils'
-require 'parseconfig'
+require 'iniparse'
 
+##
+# Screenshot utility
+#
 class Screenshot
-  VERSION = '0.4.1'
+  VERSION = '0.4.2'.freeze
 
   def initialize
     load_settings
@@ -25,18 +29,17 @@ class Screenshot
       # Take screenshot
       take
     end
-
   end
 
   def version
-    puts '%1$s %2$s' % [File.basename(__FILE__), VERSION]
+    puts format('%1$s %2$s', File.basename(__FILE__), VERSION)
     exit
   end
 
   def help
     copyright
     puts
-    puts 'Usage: %s [<options>]' % File.basename(__FILE__)
+    puts format('Usage: %s [<options>]', File.basename(__FILE__))
     puts
     puts 'Options:'
     puts '  --type=<full|region>'
@@ -63,10 +66,11 @@ class Screenshot
     # Screenshot filename
     image = File.absolute_path(File.join(
       File.expand_path(@config['screenshot']['path']),
-      '%1$s.%2$s' % [
+      format(
+        '%1$s.%2$s',
         Time.now.strftime(@config['screenshot']['name']),
         @config['screenshot']['extension']
-      ]
+      )
     ))
 
     # Screenshot path
@@ -79,7 +83,7 @@ class Screenshot
     end
 
     # Screenshot delay
-    if @config['screenshot']['delay'].to_i > 0 and @config['screenshot']['type'] == 'full'
+    if @config['screenshot']['delay'].to_i > 0 && @config['screenshot']['type'] == 'full'
       sleep(@config['screenshot']['delay'].to_i)
     end
 
@@ -88,45 +92,50 @@ class Screenshot
     when 'region'
       image
     else
-      '%1$s %2$s' % ['-window root', image]
+      format('%1$s %2$s', '-window root', image)
     end
 
     # Save screenshot
     begin
-      system('%1$s %2$s' % [@config['screenshot']['application'], args])
+      system(format('%1$s %2$s', @config['screenshot']['application'], args))
     rescue => error
       abort error.message
     end
 
     # Debug info
-    puts 'Path:   %s' % File.dirname(image)
-    puts 'File:   %s' % File.basename(image)
-    puts 'Type:   %s' % @config['screenshot']['type']
-    puts 'Delay:  %ds' % @config['screenshot']['delay'].to_i
-    puts 'Status: %s' % (File.exist?(image) ? 'saved' : 'failed')
+    puts format('Path:   %s', File.dirname(image))
+    puts format('File:   %s', File.basename(image))
+    puts format('Type:   %s', @config['screenshot']['type'])
+    puts format('Delay:  %ds', @config['screenshot']['delay'].to_i)
+    puts format('Status: %s', (File.exist?(image) ? 'saved' : 'failed'))
   end
 
-  private
   def load_settings
     file = File.absolute_path(File.join(Dir.home, '.config', 'screenshot.conf'))
 
-    begin
-      # Create config file
-      unless File.exist?(file)
-        File.open(file, 'w') do |f|
-          f.puts '[screenshot]'
-          f.puts 'application="/usr/bin/gm"'
-          f.puts 'arguments="import %1$s"'
-          f.puts 'path="~/Pictures/Screenshots"'
-          f.puts 'name="screenshot_%Y%m%d_%H%M%S"'
-          f.puts 'extension="png"'
-          f.puts 'type="full"'
-          f.puts 'delay=0'
+    unless File.exist?(file)
+      File.open(file, 'w') do |f|
+        # Create config file structure
+        config = IniParse.gen do |conf|
+          conf.section('screenshot') do |sec|
+            sec.option('application', '/usr/bin/gm')
+            sec.option('arguments', 'import %1$s')
+            sec.option('path', '~/Pictures/Screenshots')
+            sec.option('name', 'screenshot_%Y%m%d_%H%M%S')
+            sec.option('extension', 'png')
+            sec.option('type', 'full')
+            sec.option('delay', 0)
+          end
         end
-      end
 
-      # Load config file
-      @config = ParseConfig.new(file)
+        # Save to file
+        f.puts config.to_ini
+      end
+    end
+
+    # Load configuration file
+    begin
+      @config = IniParse.open(file)
     rescue => error
       abort error.message
     end
@@ -136,9 +145,9 @@ class Screenshot
   def parse_arguments
     args = ARGV.join(' ').scan(/--?([^=\s]+)(?:=(\S+))?/).to_h
 
-    @config['screenshot']['type'] = args['type'] if !args['type'].nil?
-    @config['screenshot']['path'] = File.expand_path(args['path']) if !args['path'].nil?
-    @config['screenshot']['delay'] = args['delay'].to_i if !args['delay'].nil?
+    @config['screenshot']['type'] = args['type'] unless args['type'].nil?
+    @config['screenshot']['path'] = File.expand_path(args['path']) unless args['path'].nil?
+    @config['screenshot']['delay'] = args['delay'].to_i unless args['delay'].nil?
 
     return args
   end
@@ -152,7 +161,6 @@ class Screenshot
     puts 'WARRANTY; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.'
     puts 'See the GNU General Public License version 3 for more details.'
   end
-
 end
 
 Screenshot.new.run

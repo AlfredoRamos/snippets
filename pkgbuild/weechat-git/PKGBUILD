@@ -1,0 +1,56 @@
+# $Id$
+# Maintainer : Alfredo Ramos <alfredo dot ramos at yandex dot com>
+# Contributor: Christian Rebischke <Chris.Rebischke@archlinux.org>
+# Contributor: Giovanni Scafora <giovanni@archlinux.org>
+# Contributor: lucke <lucke at o2 dot pl>
+
+_pkgname=weechat
+pkgname=${_pkgname}-git
+pkgver=1.9.304.g24bef50ab
+pkgrel=1
+pkgdesc='Fast, light and extensible IRC client (curses UI)'
+arch=('i686' 'x86_64')
+url='http://www.weechat.org/'
+license=('GPL')
+depends=('gnutls' 'curl' 'libgcrypt' 'hicolor-icon-theme')
+makedepends=('source-highlight' 'cmake' 'pkg-config')
+optdepends=('perl' 'python' 'lua' 'tcl' 'ruby' 'aspell' 'guile2.0' 'php')
+source=("git+https://github.com/${_pkgname}/${_pkgname}.git")
+sha512sums=('SKIP')
+
+pkgver() {
+	# Updating package version
+	cd "${srcdir}"/${_pkgname}
+	git describe --long --tags 2>/dev/null | sed -r 's/^v//;s/-/./g'
+}
+
+prepare() {
+	mkdir -p "${srcdir}"/build
+}
+
+build() {
+	cd "${srcdir}"/build
+	cmake ../${_pkgname} \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_BUILD_TYPE=Debug \
+		-DENABLE_MAN=ON \
+		-DENABLE_ASPELL=OFF \
+		-DENABLE_EXEC=OFF \
+		-DENABLE_FIFO=OFF \
+		-DENABLE_GUILE=OFF \
+		-DENABLE_JAVASCRIPT=OFF \
+		-DENABLE_LUA=OFF \
+		-DENABLE_PERL=OFF \
+		-DENABLE_PHP=OFF \
+		-DENABLE_PYTHON=OFF \
+		-DENABLE_RUBY=OFF \
+		-DENABLE_TCL=OFF \
+		-DENABLE_TRIGGER=OFF \
+		-DENABLE_XFER=OFF
+	make
+}
+
+package() {
+	cd "${srcdir}"/build
+	make DESTDIR="${pkgdir}" install
+}

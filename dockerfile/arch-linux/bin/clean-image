@@ -1,8 +1,0 @@
-#!/bin/bash --
-
-# Clean Docker image
-
-yes | pacman -Scc
-rm -Rf /usr/share/man/*
-rm -Rf /tmp/*
-rm -Rf /var/tmp/*

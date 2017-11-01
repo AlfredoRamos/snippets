@@ -1,8 +1,0 @@
-#!/bin/bash --
-
-# Add packages to the IgnorePkg list to save space
-
-package_list="$(cat "${HOME}"/ignorepkg | tr '\n' ' ')"
-config_file=/etc/pacman.conf
-
-sed -ri "s|(#*)(IgnorePkg)(\s+=)|\2\3 ${package_list}|" "${config_file}"

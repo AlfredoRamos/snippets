@@ -1,22 +1,23 @@
 #!/usr/bin/env ruby
-# encoding: UTF-8
 
 $stdout.sync = $stderr.sync = true
 
 require 'iniparse'
 require 'logger'
+require 'pathname'
+require 'fileutils'
 
 ##
 # AUR setup utility
 #
 class AurSetUp
-  VERSION = '0.4.1'.freeze
+  VERSION = '0.5.0'.freeze
 
   def initialize
     # Setup logger
     @logger = Logger.new($stdout)
     @logger.datetime_format = '%F %T %:z'
-    @logger.formatter = proc do |severity, datetime, progname, msg|
+    @logger.formatter = proc do |severity, datetime, _progname, msg|
       "#{datetime} | #{severity} | #{msg}\n"
     end
 
@@ -45,21 +46,21 @@ class AurSetUp
         f.puts config.to_ini
       end
 
-      @logger.info(format('Config file created at %s', file))
+      @logger.info(format('Config file created at %<filename>s', filename: file))
     end
 
     # Load settings from file
     begin
       @config = IniParse.open(file)
-    rescue => error
+    rescue IniParse::IniParseError => error
       @logger.error(error.message)
     end
 
-    # Check for errors
-    case
-    when (@config['aur']['root_path'].to_s.empty? || @config['aur']['hooks_path'].to_s.empty?)
+    if @config['aur']['root_path'].to_s.empty? || @config['aur']['hooks_path'].to_s.empty?
       @logger.error('You need to set the AUR root and hooks path')
-    when (@config['git']['name'].to_s.empty? || @config['git']['email'].to_s.empty?)
+    end
+
+    if @config['git']['name'].to_s.empty? || @config['git']['email'].to_s.empty?
       @logger.error('You need to set the git user name and email')
     end
   end
@@ -75,47 +76,30 @@ class AurSetUp
       version
     else
       unless args.keys.empty?
-        @logger.warn(format('Unknown arguments: %s', args.keys.join(',')))
+        @logger.warn(format('Unknown arguments: %<args>s', args: args.keys.join(',')))
       end
     end
   end
 
   def parse_arguments
-    return ARGV.join(' ').scan(/--?([^=\s]+)(?:=(\S+))?/).to_h
+    ARGV.join(' ').scan(/--?([^=\s]+)(?:=(\S+))?/).to_h
   end
 
   def git_repositories
-    repositories = Dir.entries(File.expand_path(@config['aur']['root_path']))
-    repositories -= ['.', '..']
-
-    repositories.map! do |repository|
-      # Get absolute path
-      File.absolute_path(File.join(
-        File.expand_path(@config['aur']['root_path']),
-        repository
-      ))
-    end
-
-    repositories
+    Pathname.new(File.expand_path(@config['aur']['root_path'])).children
   end
 
   def git_hooks
-    hooks = Dir.entries(File.expand_path(@config['aur']['hooks_path']))
-    hooks -= ['.', '..']
-
-    # Do not include files that are not hooks
-    hooks.delete_if do |hook|
-      !hook.include?('.hook') || !File.file?(File.join(
-        File.expand_path(@config['aur']['hooks_path']),
-        hook
-      ))
-    end
-
-    hooks
+    hooks = Pathname.new(File.expand_path(@config['aur']['hooks_path'])).children
+    hooks.keep_if { |hook| hook.extname.eql?('.hook') && hook.executable? }
   end
 
   def version
-    puts format('%1$s %2$s', File.basename(__FILE__), VERSION)
+    puts format(
+      '%<program>s %<version>s',
+      program: File.basename(__FILE__),
+      version: VERSION
+    )
     exit
   end
 
@@ -127,17 +111,20 @@ class AurSetUp
   end
 
   def setup_git_config(package)
-    if Dir.exist?(package)
+    if Dir.exist?(package.to_s)
       # Change to package directory
-      Dir.chdir(package)
+      Dir.chdir(package.to_s)
 
-      cmd = 'git config --local --replace-all user.%1$s "%2$s"'
+      cmd = 'git config --local --replace-all user.%<key>s "%<value>s"'
 
       # Git config
-      system(format(cmd, 'name', @config['git']['name']))
-      system(format(cmd, 'email', @config['git']['email']))
+      system(format(cmd, key: 'name', value: @config['git']['name']))
+      system(format(cmd, key: 'email', value: @config['git']['email']))
 
-      @logger.info(format('%s git configuration [OK]', File.basename(package)))
+      @logger.info(format(
+        '%<package>s git configuration [OK]',
+        package: package.basename
+      ))
     end
 
     # Return to the AUR root path
@@ -146,26 +133,21 @@ class AurSetUp
 
   def setup_git_hooks(package)
     git_hooks.each do |hook|
-      file = File.join(File.expand_path(@config['aur']['hooks_path']), hook)
-      target = File.join(package, '.git', 'hooks', hook).chomp('.hook')
+      target = Pathname.new(File.join(package.to_s, '.git', 'hooks', hook.basename))
+      target = target.to_s.chomp(target.extname) unless target.extname.empty?
 
       # Create symbolic link
-      File.symlink(file, target) if File.exist?(file) && !File.symlink?(target)
+      FileUtils.symlink(hook.to_s, target.to_s, force: true)
     end
 
     # Get installed hooks
-    hooks = Dir.entries(File.join(package, '.git', 'hooks'))
-    hooks -= ['.', '..']
-
-    # Do not include sample hooks
-    hooks.delete_if do |hook|
-      hook.include?('.sample')
-    end
+    hooks = Pathname.new(File.join(package.to_s, '.git', 'hooks')).children
+    hooks.delete_if { |hook| hook.extname.eql?('.sample') }
 
     @logger.info(format(
-      '%1$s git hooks [%2$s]',
-      File.basename(package),
-      (hooks.empty? ? 'FAIL' : 'OK')
+      '%<package>s git hooks [%<status>s]',
+      package: File.basename(package.to_s),
+      status: (hooks.empty? ? 'FAIL' : 'OK')
     ))
   end
 end

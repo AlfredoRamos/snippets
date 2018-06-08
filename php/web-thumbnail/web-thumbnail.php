@@ -1,35 +1,45 @@
 <?php
 
 /**
- * Generate a web thumbnail using mshots
- * @param	string	$url		The URL to generate the thumbnail
- * @param	array	$options	Options for mshots
- * @return	string|bool
+ * Generate a web thumbnail using mshots.
+ *
+ * @param string	$url		The URL to generate the thumbnail
+ * @param array		$options	Options for mshots
+ *
+ * @return string
  */
 function web_thumbnail($url = '', $options = []) {
+	$uri = '';
+
 	if (empty($url)) {
-		return false;
+		return $uri;
 	}
 
-	$defaults = [
-		'w' => null, // Image width
-		'h' => null, // Image height
-	];
-	$options = array_merge($defaults, $options);
+	// Merge options
+	$options = array_merge([
+		'w' => 150,
+		'h' => 150
+	], $options);
 
-	$uri = 'https://www.wordpress.com/mshots/v1/%1$s%2$s';
-	$tmp = [];
+	// Cast values
+	$options['w'] = (int) $options['w'];
+	$options['h'] = (int) $options['h'];
+
+	$format = 'https://s.wordpress.com/mshots/v1/%1$s%2$s';
 
 	// Clean URL
-	$tmp['clean'] = preg_replace('/^http(s)?\:\/\//i', '', $url);
-	$tmp['clean'] = preg_replace('/\?$/i', '', $tmp['clean']);
+	$url = preg_replace('/^http(?:s)?:\/\//i', '', $url);
+	$url = preg_replace('/(?:\/)$/', '', $url);
 
-	// Build options query
-	$tmp['query'] = http_build_query($options);
-	$tmp['query'] = isset($options['w'], $options['h']) ? sprintf('?%s', $tmp['query']) : '';
+	$url = rawurlencode($url);
+	$args = '';
+
+	if ($options['w'] > 0 && $options['h'] > 0) {
+		$args = sprintf('?%s', http_build_query($options, null, '&', PHP_QUERY_RFC3986));
+	}
 
 	// Generate URI
-	$uri = vsprintf($uri, [$tmp['clean'], $tmp['query']]);
+	$uri = vsprintf($format, [$url, $args]);
 
 	return $uri;
 }

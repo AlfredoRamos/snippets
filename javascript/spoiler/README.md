@@ -23,10 +23,4 @@ A small script to mimic a BBS spoiler BBCode.
 </div>
 ```
 
-- Initialize the spoilers:
-
-```html
-	$(document).initSpoilers();
-```
-
 Check this [gist](https://gist.github.com/AlfredoRamos/6ec26124bf8d232e8126a5825c984950) for a code example.

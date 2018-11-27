@@ -12,7 +12,7 @@ require 'fileutils'
 # AUR setup utility
 #
 class AurSetUp
-  VERSION = '0.5.0'
+  VERSION = '0.5.0'.freeze
 
   def initialize
     # Setup logger
@@ -59,10 +59,12 @@ class AurSetUp
 
     if @config['aur']['root_path'].to_s.empty? || @config['aur']['hooks_path'].to_s.empty?
       @logger.error('You need to set the AUR root and hooks path')
+      return
     end
 
     if @config['git']['name'].to_s.empty? || @config['git']['email'].to_s.empty?
       @logger.error('You need to set the git user name and email')
+      return
     end
   end
 
@@ -112,10 +114,15 @@ class AurSetUp
   end
 
   def setup_git_config(package)
-    if Dir.exist?(package.to_s)
-      # Change to package directory
-      Dir.chdir(package.to_s)
+    unless Dir.exist?(package.to_s)
+      @logger.error(format(
+        'Package %<name>s does not exist',
+        name: package.basename
+      ))
+      return
+    end
 
+    Dir.chdir(package.to_s) do
       cmd = 'git config --local --replace-all user.%<key>s "%<value>s"'
 
       # Git config
@@ -127,9 +134,6 @@ class AurSetUp
         package: package.basename
       ))
     end
-
-    # Return to the AUR root path
-    Dir.chdir(File.expand_path(@config['aur']['root_path']))
   end
 
   def setup_git_hooks(package)
@@ -147,7 +151,7 @@ class AurSetUp
 
     @logger.info(format(
       '%<package>s git hooks [%<status>s]',
-      package: File.basename(package.to_s),
+      package: package.basename,
       status: (hooks.empty? ? 'FAIL' : 'OK')
     ))
   end

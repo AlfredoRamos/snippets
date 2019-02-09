@@ -8,7 +8,7 @@
 
 pkgbase=vim
 pkgname=('vim-git' 'vim-runtime-git')
-pkgver=8.0.1056.0.g6e32f615e
+pkgver=8.1.0884.0.gaf630d4f7
 pkgrel=1
 arch=('i686' 'x86_64' 'armv7h')
 license=('custom:vim')
@@ -23,7 +23,7 @@ source=(
 sha512sums=(
 	'SKIP'
 	'4b5bed0813f22af9e158ea9aa56a4a9862dd786ba2d201f20159ccf652da6190164aaed0b6b7217d578f7b25c33a8adcc307bfcf3caa8d173a7ff29e2a00fee7'
-	'935c15a4cc55b9209e6b6c974df765cc6683ae32ccea38acadc825bbc9c60b97ebe14aec8814b7e52080c0d0ded520a68ff1880ab64f320b08c181b6bf862edb'
+	'fe091d289d876f45319c898f6021ef86d6a238b540c225a279c46efc5c36fa7d868cd0cee73a111811c4be90df160f85340bb251be3a437727dbe5c699950363'
 	'1e06e981691b17662fd0fddac5c00c87c920d1b4a1cbb6191c42d57cc40b00af12710e26b22fcfc0901bb8142b15f6a04aa65cec2d9b3bb9d5a06cb650d3ab9c'
 )
 
@@ -72,7 +72,7 @@ build() {
 
 check() {
 	cd "${srcdir}"/build
-	# TERM=xterm make -j1 test
+	#TERM=xterm make -j1 test
 }
 
 package_vim-git() {
@@ -87,7 +87,7 @@ package_vim-git() {
 		'tcl: Tcl language support'
 	)
 	conflicts=('gvim' 'vim-minimal' 'vim-python3')
-	provides=("vim-minimal=${pkgver}-${pkgrel}" "vim-python3=${pkgver}-${pkgrel}" "xxd=${pkgver}-${pkgrel}")
+	provides=("vim=${pkgver}-${pkgrel}" "vim-python3=${pkgver}-${pkgrel}" "xxd=${pkgver}-${pkgrel}")
 	replaces=('vim-python3' 'vim-minimal')
 
 	cd "${srcdir}"/build

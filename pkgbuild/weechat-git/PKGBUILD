@@ -9,7 +9,7 @@ pkgname=${_pkgname}-git
 pkgver=1.9.309.g5f7b62f83
 pkgrel=1
 pkgdesc='Fast, light and extensible IRC client (curses UI)'
-arch=('i686' 'x86_64' 'armv7h')
+arch=('i686' 'x86_64' 'armv7h' 'aarch64')
 url='http://www.weechat.org/'
 license=('GPL')
 

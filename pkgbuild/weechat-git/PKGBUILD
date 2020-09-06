@@ -14,7 +14,7 @@ url='http://www.weechat.org/'
 license=('GPL')
 
 depends=('gnutls' 'curl' 'libgcrypt' 'hicolor-icon-theme')
-makedepends=('source-highlight' 'cmake' 'pkg-config')
+makedepends=('source-highlight' 'cmake' 'pkg-config' 'asciidoctor')
 optdepends=('perl' 'python' 'lua' 'tcl' 'ruby' 'aspell' 'guile2.0' 'php')
 provides=("${_pkgname}=${pkgver}")
 conflicts=("${_pkgname}")
@@ -38,7 +38,7 @@ build() {
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_BUILD_TYPE=Debug \
 		-DENABLE_MAN=ON \
-		-DENABLE_ASPELL=OFF \
+		-DENABLE_SPELL=OFF \
 		-DENABLE_EXEC=OFF \
 		-DENABLE_FIFO=OFF \
 		-DENABLE_GUILE=OFF \

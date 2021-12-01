@@ -8,7 +8,7 @@
 
 pkgbase=vim
 pkgname=('vim-git' 'vim-runtime-git')
-pkgver=8.2.2832.0.g1ad72c8eb
+pkgver=8.2.3717.0.gdb9ff9ab5
 pkgrel=1
 arch=('i686' 'x86_64' 'armv7h' 'aarch64')
 license=('custom:vim')
@@ -152,10 +152,6 @@ package_vim-runtime-git() {
 	install -Dm644 "${srcdir}"/vimrc "${pkgdir}"/etc/vimrc
 	install -Dm644 "${srcdir}"/archlinux.vim \
 		"${pkgdir}"/usr/share/vim/vimfiles/archlinux.vim
-
-	# rgb.txt file
-	install -Dm644 runtime/rgb.txt \
-		"${pkgdir}"/usr/share/vim/vim${versiondir}/rgb.txt
 
 	# no desktop files and icons
 	rm -r "${pkgdir}"/usr/share/{applications,icons}

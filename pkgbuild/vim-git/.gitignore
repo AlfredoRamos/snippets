@@ -1,0 +1,9 @@
+*
+!.gitignore
+!.gitattributes
+!PKGBUILD
+!.SRCINFO
+!vimrc
+!vimdoc.hook
+!archlinux.vim
+!README.md

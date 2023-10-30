@@ -8,12 +8,12 @@
 
 pkgbase=vim
 pkgname=('vim-git' 'vim-runtime-git')
-pkgver=8.2.3717.0.gdb9ff9ab5
+pkgver=9.0.2081.0.g1bf1bf569
 pkgrel=1
-arch=('i686' 'x86_64' 'armv7h' 'aarch64')
+arch=('i686' 'x86_64' 'x86_64_v3' 'armv7h' 'aarch64')
 license=('custom:vim')
 url='http://www.vim.org'
-makedepends=('gpm' 'python2' 'python' 'ruby' 'libxt' 'lua' 'gawk' 'tcl')
+makedepends=('glibc' 'libgcrypt' 'zlib' 'gpm' 'python' 'ruby' 'libxt' 'lua' 'gawk' 'tcl' 'git')
 source=(
 	'git+https://github.com/vim/vim.git'
 	'vimrc'
@@ -24,7 +24,7 @@ sha512sums=(
 	'SKIP'
 	'4b5bed0813f22af9e158ea9aa56a4a9862dd786ba2d201f20159ccf652da6190164aaed0b6b7217d578f7b25c33a8adcc307bfcf3caa8d173a7ff29e2a00fee7'
 	'fe091d289d876f45319c898f6021ef86d6a238b540c225a279c46efc5c36fa7d868cd0cee73a111811c4be90df160f85340bb251be3a437727dbe5c699950363'
-	'1e06e981691b17662fd0fddac5c00c87c920d1b4a1cbb6191c42d57cc40b00af12710e26b22fcfc0901bb8142b15f6a04aa65cec2d9b3bb9d5a06cb650d3ab9c'
+	'a02ad0d66f300160911aeb81d8886c6c558436ac4ee3fcd161dd65c6b1e5d1f41b9005a7f5bb5ba68d57027fc1c8e43daabf055bd6207fb5a216a67f758df8d1'
 )
 
 pkgver() {
@@ -41,8 +41,8 @@ prepare() {
 	cd "${srcdir}"/build/src
 
 	# define the place for the global (g)vimrc file (set to /etc/vimrc)
-	sed -i 's|^.*\(#define SYS_.*VIMRC_FILE.*"\) .*$|\1|' feature.h
-	sed -i 's|^.*\(#define VIMRC_FILE.*"\) .*$|\1|' feature.h
+	sed -E 's|^.*(#define SYS_.*VIMRC_FILE.*").*$|\1|g' -i feature.h
+	sed -E 's|^.*(#define VIMRC_FILE.*").*$|\1|g' -i feature.h
 	autoconf
 }
 
@@ -62,7 +62,6 @@ build() {
 		--enable-cscope \
 		--enable-netbeans \
 		--enable-perlinterp=dynamic \
-		--enable-pythoninterp=dynamic \
 		--enable-python3interp=dynamic \
 		--enable-rubyinterp=dynamic \
 		--enable-luainterp=dynamic \
@@ -71,16 +70,15 @@ build() {
 	make
 }
 
-check() {
-	cd "${srcdir}"/build
-	#TERM=xterm make -j1 test
-}
+# check() {
+# 	cd "${srcdir}"/build
+# 	TERM=xterm make -j1 test
+# }
 
 package_vim-git() {
 	pkgdesc='Vi Improved, a highly configurable, improved version of the vi text editor. Development version.'
-	depends=("vim-runtime=${pkgver}-${pkgrel}" 'gpm' 'acl')
+	depends=("vim-runtime=${pkgver}-${pkgrel}" 'gpm' 'acl' 'glibc' 'libgcrypt' 'zlib')
 	optdepends=(
-		'python2: Python 2 language support'
 		'python: Python 3 language support'
 		'ruby: Ruby language support'
 		'lua: Lua language support'
@@ -90,7 +88,6 @@ package_vim-git() {
 	conflicts=('gvim' 'vim-minimal' 'vim-python3')
 	provides=(
 		"vim-minimal=${pkgver}-${pkgrel}"
-		"vim-python3=${pkgver}-${pkgrel}"
 		"vim-plugin-runtime=${pkgver}-${pkgrel}"
 		"xxd=${pkgver}-${pkgrel}"
 	)
@@ -119,6 +116,9 @@ package_vim-git() {
 	# license
 	install -Dm644 runtime/doc/uganda.txt \
 		"${pkgdir}"/usr/share/licenses/${pkgname}/license.txt
+
+	# pacman hook for documentation helptags
+	install -Dm 644 "${srcdir}"/vimdoc.hook "${pkgdir}"/usr/share/libalpm/hooks/vimdoc.hook
 }
 
 package_vim-runtime-git() {
@@ -138,16 +138,6 @@ package_vim-runtime-git() {
 	install -Dm644 runtime/ftplugin/logtalk.dict \
 		"${pkgdir}"/usr/share/vim/vim${versiondir}/ftplugin/logtalk.dict
 
-	# fix FS#17216
-	sed -i 's|messages,/var|messages,/var/log/messages.log,/var|' \
-		"${pkgdir}"/usr/share/vim/vim${versiondir}/filetype.vim
-
-	# patch filetype.vim for better handling of pacman related files
-	sed -i "s/rpmsave/pacsave/;s/rpmnew/pacnew/;s/,\*\.ebuild/\0,PKGBUILD*,*.install/" \
-		"${pkgdir}"/usr/share/vim/vim${versiondir}/filetype.vim
-	sed -i "/find the end/,+3{s/changelog_date_entry_search/changelog_date_end_entry_search/}" \
-		"${pkgdir}"/usr/share/vim/vim${versiondir}/ftplugin/changelog.vim
-
 	# rc files
 	install -Dm644 "${srcdir}"/vimrc "${pkgdir}"/etc/vimrc
 	install -Dm644 "${srcdir}"/archlinux.vim \
@@ -160,7 +150,4 @@ package_vim-runtime-git() {
 	install -dm755 "${pkgdir}"/usr/share/licenses/vim-runtime
 	ln -s /usr/share/vim/vim${versiondir}/doc/uganda.txt \
 		"${pkgdir}"/usr/share/licenses/vim-runtime/license.txt
-
-	# pacman hook for documentation helptags
-	install -Dm644 "${srcdir}"/vimdoc.hook "${pkgdir}"/usr/share/libalpm/hooks/vimdoc.hook
 }
